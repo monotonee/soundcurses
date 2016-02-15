@@ -18,7 +18,7 @@
       update_cache: true
       upgrade: true
 
-  - name: Install Ruby interpreter
+  - name: Install Docker engine
     pacman:
-      name: ruby
+      name: docker
       state: present
