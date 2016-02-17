@@ -7,6 +7,10 @@
   # https://docs.ansible.com/ansible/setup_module.html
   gather_facts: false
 
+  # Variables
+  vars:
+    default_user: vagrant
+
   tasks:
     # Arch base group does not include Python, which Ansible needs.
   - name: Install Python 2 and Python 3 interpreters
@@ -16,6 +20,20 @@
     pacman:
       update_cache: true
       upgrade: true
+    notify:
+      - Reboot host
+      - Wait for host reboot
+
+  # Modify alias in default user's .bashrc to personal preference.
+  - name: Enable "la" bash alias in .bashrc
+    lineinfile:
+      backup: true
+      dest: /home/{{ default_user }}/.bashrc
+      line: alias la='ls -Alh --color'
+      regexp: '^alias la='
+      state: present
+    notify:
+      - Source .bashrc
 
   # On Arch, Docker depends upon bridge-utils core package which is not included
   # in base group. A reoot is required for the module to be available to kernel.
@@ -25,8 +43,26 @@
       state: present
     notify:
       - Reboot host
+      - Wait for host reboot
 
   handlers:
+  # https://docs.ansible.com/ansible/playbooks_async.html
   - name: Reboot host
     command: systemctl reboot
+    async: 0
     ignore_errors: true
+    poll: 0
+
+  - name: Source .bashrcv
+    shell: source /home/{{ default_user }}/.bashrc
+
+  - name: Wait for host reboot
+    local_action:
+      wait_for:
+        connect_timeout: 10
+        delay: 2
+        host: "{{ ansible_ssh_host }}"
+        port: "{{ ansible_ssh_port }}"
+        timeout: 300
+      become: false
+
