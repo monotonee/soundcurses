@@ -8,7 +8,6 @@
   gather_facts: false
 
   tasks:
-
     # Arch base group does not include Python, which Ansible needs.
   - name: Install Python 2 and Python 3 interpreters
     raw: pacman -S python2 python --noconfirm --noprogressbar
@@ -18,7 +17,16 @@
       update_cache: true
       upgrade: true
 
+  # On Arch, Docker depends upon bridge-utils core package which is not included
+  # in base group. A reoot is required for the module to be available to kernel.
   - name: Install Docker engine
     pacman:
       name: docker
       state: present
+    notify:
+      - Reboot host
+
+  handlers:
+  - name: Reboot host
+    command: systemctl reboot
+    ignore_errors: true
