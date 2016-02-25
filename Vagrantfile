@@ -72,7 +72,6 @@ Vagrant.configure(2) do |config|
       'default' => {'ansible_python_interpreter' => 'python2'}
     }
     ansible.playbook = 'provision/ansible/playbook.yml'
-    # Verbose pacman outputs are suboptimal, echoing every line in pacman's progr
     ansible.verbose = 'v'
   end
 end
