@@ -87,6 +87,11 @@
       or pacman_docker_install.changed
       or user_groups_modified.changed
 
+  - name: Install python-pip
+    pacman:
+      name: python-pip
+      state: present
+
   # Modify alias in default user's .bashrc to personal preference.
   - name: Enable "la" bash alias in .bashrc
     lineinfile:
