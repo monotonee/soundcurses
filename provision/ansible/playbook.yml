@@ -87,6 +87,13 @@
       or pacman_docker_install.changed
       or user_groups_modified.changed
 
+  # As of 216-03-11, necessary for virtualbox-guest-dkms package in order to
+  # build kernel modules for VirtualBox guest additions.
+  - name: Install Linux headers
+    pacman:
+      name: linux-headers
+      state: present
+
   - name: Install python-pip
     pacman:
       name: python-pip
