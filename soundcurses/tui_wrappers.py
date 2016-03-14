@@ -6,7 +6,6 @@ library.
 
 The curses library performs the following tasks when initialized:
 
-
 """
 
 import curses
@@ -18,8 +17,10 @@ class CursesWrapper:
         # available, initialized to None.
         self._standard_screen = None
 
-    def initialize_display(self):
+    def initialize_window(self):
         """ Immediately assumes control of the current TUI window.
+
+        Changes window settings to facilitate proper handling of UI events.
 
         See https://docs.python.org/3.5/howto/curses.html#curses-howto
 
@@ -37,8 +38,13 @@ class CursesWrapper:
         # Disable buffered input mode.
         curses.cbreak()
 
-    def destroy_display(self):
+    def write(self, string):
+        pass
+
+    def destroy_window(self):
         """ Return TUI window to normal settings and relinquish control
+
+        Returns window settings to original values.
 
         """
         # Disable special keys' escape sequence replacement.
