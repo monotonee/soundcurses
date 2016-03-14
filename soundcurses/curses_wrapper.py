@@ -11,7 +11,7 @@ The curses library performs the following tasks when initialized:
 
 import curses
 
-def CursesWrapper:
+class CursesWrapper:
 
     def __init__(self):
         # All instance variables declared here. If no initialization value
