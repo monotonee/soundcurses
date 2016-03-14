@@ -94,6 +94,7 @@
       name: linux-headers
       state: present
 
+  # Note that this package depends on python-setuptools and will install it.
   - name: Install python-pip
     pacman:
       name: python-pip
