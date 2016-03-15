@@ -16,6 +16,17 @@ class ViewCurses:
     def __init__(self):
         """ Initialize the curses standard (main) screen and window hierarchy.
 
+        _character_encoding - Saves a reference to the character encoding used
+            if it becomes necessary to convert byte streams into characters.
+        _standard_screen - The reference to the main curses screen.
+        _window_bar_first - The first horizontal window bar. Often contains
+            current artist and track title.
+        _window_bar_second - Displayed directly underneath the first bar. Often
+            displays a breadcrumb-like hierarchy of current resources, letting
+            a user know where one is in the SoundCloud resource tree.
+        _window_content - The main window. Displays resource lists such as
+            SoundCloud stream content, playlists, tracks, etc.
+
         """
         # All instance variables declared here. If no initialization value
         # available, initialized to None.
@@ -25,7 +36,7 @@ class ViewCurses:
         self._window_bar_second = None
         self._window_content = None
 
-        # Start curses.
+        # Start view.
         self._set_character_encoding()
         self._initialize_standard_screen()
         self._initialize_windows()
@@ -79,14 +90,25 @@ class ViewCurses:
         called.
 
         """
-        # self._window_01 = curses.newwin(4, curses.COLS - 1, 0, 0)
-        # self._window_01.border()
-        # self._window_01.addstr('THIS IS ONLY A TEST')
-        # self._standard_screen.refresh()
-        # self._window_01.refresh()
-        # self._standard_screen.refresh()
-        # self._window_01.noutrefresh()
-        # curses.doupdate()
+        self._window_bar_first = curses.newwin(3, curses.COLS, 0, 0)
+        self._window_bar_first.border()
+        self._window_bar_first.noutrefresh()
+
+        self._window_bar_second = curses.newwin(3, curses.COLS, 3, 0)
+        self._window_bar_second.border()
+        self._window_bar_second.noutrefresh()
+
+        self._window_content = curses.newwin(curses.LINES - 6, curses.COLS, 6, 0)
+        self._window_content.border()
+        self._window_content.noutrefresh()
+
+        curses.doupdate()
+
+    def _render(self):
+        """ Render the state of the virtual curses windows and pads.
+
+        """
+        curses.doupdate()
 
     def destroy(self):
         """ Relinquish control of standard screen.
