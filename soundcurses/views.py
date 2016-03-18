@@ -8,13 +8,14 @@ The curses library performs the following tasks when initialized:
 
 """
 
-import curses
-import locale
-
 class CursesView:
 
-    def __init__(self):
+    def __init__(self, curses, stdscr, locale):
         """ Initialize the curses standard (main) screen and window hierarchy.
+
+        curses - A curses library interface.
+        stdscr - A reference to a curses standard screen (main window).
+        locale - A reference to the Python standard library locale interface.
 
         _character_encoding - Saves a reference to the character encoding used
             if it becomes necessary to convert byte streams into characters.
@@ -30,6 +31,10 @@ class CursesView:
         """
         # All instance variables declared here. If no initialization value
         # available, initialized to None.
+        self._curses = curses
+        self._stdscr = stdscr
+        self._locale = locale
+
         self._character_encoding = None
         self._standard_screen = None
         self._window_bar_first = None
@@ -38,7 +43,7 @@ class CursesView:
 
         # Start view.
         self._set_character_encoding()
-        self._initialize_standard_screen()
+        self._configure_stdscr()
         self._initialize_windows()
 
     def _set_character_encoding(self):
@@ -48,10 +53,10 @@ class CursesView:
 
         """
         # Set current locale to user default as specified in LANG env variable.
-        locale.setlocale(locale.LC_ALL, '')
-        self._character_encoding = locale.getpreferredencoding()
+        self._locale.setlocale(self._locale.LC_ALL, '')
+        self._character_encoding = self._locale.getpreferredencoding()
 
-    def _initialize_standard_screen(self):
+    def _configure_stdscr(self):
         """ Immediately assumes control of the current TUI window.
 
         Configues screen for presentation of common TUI.
@@ -65,20 +70,10 @@ class CursesView:
         curses.initscr() must be called before curses.savetty().
 
         """
-        # Return WindowObject, assuming control of current window.
-        self._standard_screen = curses.initscr()
         # Save current state.
-        curses.savetty()
+        self._curses.savetty()
         # Make cursor invisible.
-        curses.curs_set(0)
-        # Enable color rendering.
-        curses.start_color()
-        # Prevent keypress' character display.
-        curses.noecho()
-        # Disable buffered input mode.
-        curses.cbreak()
-        # Replace curses constant values for special keys' escape sequences.
-        self._standard_screen.keypad(True)
+        self._curses.curs_set(0)
 
     def _initialize_windows(self):
         """ Initializes windows, pads, and styles necessary for layout.
@@ -92,25 +87,34 @@ class CursesView:
         called.
 
         """
-        self._window_bar_first = curses.newwin(3, curses.COLS, 0, 0)
+        # First bar.
+        self._window_bar_first = self._curses.newwin(
+            3, self._curses.COLS, 0, 0
+        )
         self._window_bar_first.border()
         self._window_bar_first.noutrefresh()
 
-        self._window_bar_second = curses.newwin(3, curses.COLS, 3, 0)
+        # Second bar.
+        self._window_bar_second = self._curses.newwin(
+            3, self._curses.COLS, 3, 0
+        )
         self._window_bar_second.border()
         self._window_bar_second.noutrefresh()
 
-        self._window_content = curses.newwin(curses.LINES - 6, curses.COLS, 6, 0)
+        # Main area.
+        self._window_content = self._curses.newwin(
+            self._curses.LINES - 6, self._curses.COLS, 6, 0
+        )
         self._window_content.border()
         self._window_content.noutrefresh()
 
-        curses.doupdate()
+        self._render()
 
     def _render(self):
         """ Render the state of the virtual curses windows and pads.
 
         """
-        curses.doupdate()
+        self._curses.doupdate()
 
     def destroy(self):
         """ Relinquish control of standard screen.
@@ -119,6 +123,6 @@ class CursesView:
 
         """
         # Restore original terminal configuration.
-        curses.resetty()
+        self._curses.resetty()
         # Release window control.
-        curses.endwin()
+        self._curses.endwin()

@@ -2,22 +2,21 @@
 
 """
 
-from soundcurses.views import CursesView
+# Standard library imports.
+import curses
+import locale
 import sys
 import time
 
-def main():
+# Local imports.
+from soundcurses.views import CursesView
+
+
+
+def main(stdscr):
 
     # Temporary try/catch during testing
     # This is bad form.
-    view = None
-    try:
-        view = CursesView()
-        time.sleep(5)
-        view.destroy()
-    finally:
-        print('You dun goofed', sys.exc_info()[0])
-        view.destroy()
-        raise
+    view = CursesView(curses, stdscr, locale)
 
-main()
+curses.wrapper(main)
