@@ -2,7 +2,7 @@
 
 """
 
-from soundcurses.views import ViewCurses
+from soundcurses.views import CursesView
 import sys
 import time
 
@@ -12,7 +12,7 @@ def main():
     # This is bad form.
     view = None
     try:
-        view = ViewCurses()
+        view = CursesView()
         time.sleep(5)
         view.destroy()
     finally:

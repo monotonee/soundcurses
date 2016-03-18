@@ -11,7 +11,7 @@ The curses library performs the following tasks when initialized:
 import curses
 import locale
 
-class ViewCurses:
+class CursesView:
 
     def __init__(self):
         """ Initialize the curses standard (main) screen and window hierarchy.
@@ -69,6 +69,8 @@ class ViewCurses:
         self._standard_screen = curses.initscr()
         # Save current state.
         curses.savetty()
+        # Make cursor invisible.
+        curses.curs_set(0)
         # Enable color rendering.
         curses.start_color()
         # Prevent keypress' character display.
