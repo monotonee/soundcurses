@@ -8,12 +8,14 @@ The curses library performs the following tasks when initialized:
 
 """
 
+import abc
+
 class CursesView:
 
     def __init__(self, curses, stdscr, locale):
         """ Initialize the curses standard (main) screen and window hierarchy.
 
-        curses - A curses library interface.
+        curses - The curses library interface.
         stdscr - A reference to a curses standard screen (main window).
         locale - A reference to the Python standard library locale interface.
 
@@ -22,26 +24,26 @@ class CursesView:
         _standard_screen - The reference to the main curses screen.
         _window_bar_first - The first horizontal window bar. Often contains
             current artist and track title.
-        _window_bar_second - Displayed directly underneath the first bar. Often
+        _window_navigation - Displayed directly underneath the first bar. Often
             displays a breadcrumb-like hierarchy of current resources, letting
             a user know where one is in the SoundCloud resource tree.
         _window_content - The main window. Displays resource lists such as
             SoundCloud stream content, playlists, tracks, etc.
 
         """
-        # All instance variables declared here. If no initialization value
-        # available, initialized to None.
+        # Retain passed arguments.
         self._curses = curses
         self._stdscr = stdscr
         self._locale = locale
 
+        # Declare other instance attributes.
         self._character_encoding = None
         self._standard_screen = None
-        self._window_bar_first = None
-        self._window_bar_second = None
+        self._window_title_bar = None
+        self._window_navigation = None
         self._window_content = None
 
-        # Start view.
+        # Gather information and establish initial instance state.
         self._set_character_encoding()
         self._configure_stdscr()
         self._initialize_windows()
@@ -88,18 +90,18 @@ class CursesView:
 
         """
         # First bar.
-        self._window_bar_first = self._curses.newwin(
+        self._window_title_bar = self._curses.newwin(
             3, self._curses.COLS, 0, 0
         )
-        self._window_bar_first.border()
-        self._window_bar_first.noutrefresh()
+        self._window_title_bar.border()
+        self._window_title_bar.noutrefresh()
 
         # Second bar.
-        self._window_bar_second = self._curses.newwin(
+        self._window_navigation = self._curses.newwin(
             3, self._curses.COLS, 3, 0
         )
-        self._window_bar_second.border()
-        self._window_bar_second.noutrefresh()
+        self._window_navigation.border()
+        self._window_navigation.noutrefresh()
 
         # Main area.
         self._window_content = self._curses.newwin(
@@ -126,3 +128,50 @@ class CursesView:
         self._curses.resetty()
         # Release window control.
         self._curses.endwin()
+
+
+""" Defines a class that abstracts a layout region.
+
+These are passed to the curses view which then manipulates the windows' content.
+
+"""
+class CursesWindow(metaclass=abc.ABCMeta):
+
+    def __init__(self, curses, lines, columns, coord_x, coord_y):
+        """ Initializer.
+
+        curses - The curses library interface.
+
+        """
+        # Retain passed arguments.
+        self._curses = curses
+        self._dim_lines = lines
+        self._dim_cols = columns
+        self._coord_x = coord_x
+        self._coord_y = coord_y
+
+        # Declare instance attributes.
+        self._window = None
+
+        # Gather information and establish initial instance state.
+        self._initialize_window()
+
+    def _initialize_window(self):
+        self._window = self._curses.newwin(
+            self._dim_lines,
+            self._dim_cols,
+            self._coord_y,
+            self._coord_x
+        )
+
+    @abc.abstractmethod
+    def _configure_window(self):
+        """ Configure window properties.
+
+        Sets initial window state such as borders, colors, initial content, etc.
+
+        """
+        pass
+
+
+

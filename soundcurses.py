@@ -9,14 +9,10 @@ import sys
 import time
 
 # Local imports.
-from soundcurses.views import CursesView
-
-
+import soundcurses.views.curses
 
 def main(stdscr):
-
-    # Temporary try/catch during testing
-    # This is bad form.
-    view = CursesView(curses, stdscr, locale)
+    view = soundcurses.views.curses.CursesView(curses, stdscr, locale)
+    time.sleep(2)
 
 curses.wrapper(main)
