@@ -4,15 +4,15 @@ Designed to provide an additional layer of abstraction between the application
 and the chosen text-based user interface library (TUI), in this case the curses
 library.
 
-The curses library performs the following tasks when initialized:
-
 """
 
 import abc
 
 class CursesView:
 
-    def __init__(self, curses, stdscr, locale):
+    def __init__(
+            self, curses, locale,
+            stdscr_window, header_window, nav_window, content_window):
         """ Initialize the curses standard (main) screen and window hierarchy.
 
         curses - The curses library interface.
@@ -21,7 +21,6 @@ class CursesView:
 
         _character_encoding - Saves a reference to the character encoding used
             if it becomes necessary to convert byte streams into characters.
-        _standard_screen - The reference to the main curses screen.
         _window_bar_first - The first horizontal window bar. Often contains
             current artist and track title.
         _window_navigation - Displayed directly underneath the first bar. Often
@@ -33,20 +32,19 @@ class CursesView:
         """
         # Retain passed arguments.
         self._curses = curses
-        self._stdscr = stdscr
         self._locale = locale
+        self._window_stdscr = stdscr_window
+        self._window_header = header_window
+        self._window_nav = nav_window
+        self._window_content = content_window
 
         # Declare other instance attributes.
         self._character_encoding = None
-        self._standard_screen = None
-        self._window_title_bar = None
-        self._window_navigation = None
-        self._window_content = None
 
         # Gather information and establish initial instance state.
         self._set_character_encoding()
-        self._configure_stdscr()
-        self._initialize_windows()
+        self._configure_curses()
+        self._render()
 
     def _set_character_encoding(self):
         """ Determine environment locale and get encoding.
@@ -58,7 +56,7 @@ class CursesView:
         self._locale.setlocale(self._locale.LC_ALL, '')
         self._character_encoding = self._locale.getpreferredencoding()
 
-    def _configure_stdscr(self):
+    def _configure_curses(self):
         """ Immediately assumes control of the current TUI window.
 
         Configues screen for presentation of common TUI.
@@ -77,43 +75,8 @@ class CursesView:
         # Make cursor invisible.
         self._curses.curs_set(0)
 
-    def _initialize_windows(self):
-        """ Initializes windows, pads, and styles necessary for layout.
-
-        https://docs.python.org/3.5/library/curses.html#curses.doupdate
-        Note that when drawing content to a new subwindow, one must call
-        refresh() on the subwindow reference. Refresh internally calls
-        noutrefresh on the subwindow and then calls curses.doupdate(). If one
-        calls refresh() on the main window first, the subwindow's state is never
-        written to the virtual screen since its noutrefresh() method is never
-        called.
-
-        """
-        # First bar.
-        self._window_title_bar = self._curses.newwin(
-            3, self._curses.COLS, 0, 0
-        )
-        self._window_title_bar.border()
-        self._window_title_bar.noutrefresh()
-
-        # Second bar.
-        self._window_navigation = self._curses.newwin(
-            3, self._curses.COLS, 3, 0
-        )
-        self._window_navigation.border()
-        self._window_navigation.noutrefresh()
-
-        # Main area.
-        self._window_content = self._curses.newwin(
-            self._curses.LINES - 6, self._curses.COLS, 6, 0
-        )
-        self._window_content.border()
-        self._window_content.noutrefresh()
-
-        self._render()
-
     def _render(self):
-        """ Render the state of the virtual curses windows and pads.
+        """ Render virtual curses state to physical screen.
 
         """
         self._curses.doupdate()
@@ -130,14 +93,14 @@ class CursesView:
         self._curses.endwin()
 
 
-""" Defines a class that abstracts a layout region.
-
-These are passed to the curses view which then manipulates the windows' content.
-
-"""
 class CursesWindow(metaclass=abc.ABCMeta):
+    """ Defines an abstract base class that encapsulates a layout region.
 
-    def __init__(self, curses, lines, columns, coord_x, coord_y):
+    These are passed to the curses view which then manipulates the windows' content.
+
+    """
+
+    def __init__(self, curses, window):
         """ Initializer.
 
         curses - The curses library interface.
@@ -145,33 +108,72 @@ class CursesWindow(metaclass=abc.ABCMeta):
         """
         # Retain passed arguments.
         self._curses = curses
-        self._dim_lines = lines
-        self._dim_cols = columns
-        self._coord_x = coord_x
-        self._coord_y = coord_y
+        self._window = window
 
         # Declare instance attributes.
-        self._window = None
+        self.virtual_state_updated = False
 
         # Gather information and establish initial instance state.
-        self._initialize_window()
-
-    def _initialize_window(self):
-        self._window = self._curses.newwin(
-            self._dim_lines,
-            self._dim_cols,
-            self._coord_y,
-            self._coord_x
-        )
+        self._configure_window()
 
     @abc.abstractmethod
     def _configure_window(self):
         """ Configure window properties.
 
         Sets initial window state such as borders, colors, initial content, etc.
+        Only called during object construction.
+
+        Warning: make sure to call _update_virtual_state() if necessary.
 
         """
         pass
+
+    def _update_virtual_state(self):
+        """ Writes window state to curses' virtual screen state.
+
+        """
+        self._window.noutrefresh()
+        self.virtual_state_updated = True
+
+
+class StdscrWindow(CursesWindow):
+    """ Abstracts the main "stdscr" curses window.
+
+    """
+
+    def _configure_window(self):
+        pass
+
+
+class HeaderWindow(CursesWindow):
+    """ A curses window that manages the header window.
+
+    """
+
+    def _configure_window(self):
+        self._window.border()
+        self._update_virtual_state()
+
+
+class NavWindow(CursesWindow):
+    """ A curses window that manages the navigation window.
+
+    """
+
+    def _configure_window(self):
+        self._window.border()
+        self._update_virtual_state()
+
+
+class ContentWindow(CursesWindow):
+    """ A curses window that manages the content window.
+
+    """
+
+    def _configure_window(self):
+        self._window.border()
+        self._update_virtual_state()
+
 
 
 
