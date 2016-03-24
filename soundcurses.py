@@ -13,7 +13,14 @@ import soundcurses.controller
 import soundcurses.view
 
 def main(stdscr):
-    # Compose curses windows and pads.
+    """ Compose curses windows and pads.
+
+    """
+
+    # Each of the windows has the option to update virtual screen state upon
+    # instantiation. Therefore, in the case of curses without using panels,
+    # it is important that stdscr_window is instantiated first since its
+    # refresh() method is later implicitly called by getkey().
     stdscr_window = soundcurses.view.StdscrWindow(curses, stdscr)
     header_window = soundcurses.view.HeaderWindow(
         curses,
@@ -34,7 +41,12 @@ def main(stdscr):
         nav_window,
         content_window)
 
-    controller = soundcurses.controller.CursesController(stdscr_window, view)
+    # Compose controller.
+    controller = soundcurses.controller.CursesController(
+        stdscr_window,
+        view)
+
+
 
     # time.sleep(2)
 

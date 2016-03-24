@@ -116,6 +116,7 @@ class CursesWindow(metaclass=abc.ABCMeta):
         self._window = window
 
         # Declare instance attributes.
+        self.input_exception = curses.error
         self.virtual_state_updated = False
 
         # Gather information and establish initial instance state.
@@ -153,6 +154,13 @@ class StdscrWindow(CursesWindow):
         """
         self._window.nodelay(True)
         self._update_virtual_state()
+
+    def get_key(self):
+        """ Wrapper for internal curses window instance method.
+
+        """
+
+        return self._window.getkey()
 
 
 class HeaderWindow(CursesWindow):

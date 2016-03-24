@@ -2,8 +2,6 @@
 
 """
 
-import sys
-
 class CursesController:
     """ Handles user input receipt and response.
 
@@ -30,9 +28,10 @@ class CursesController:
         while True:
             key = None
             try:
-                key = self._input_window.getkey()
-            except Exception:
-                raise
-                # print(sys.exc_info()[2])
-
+                key = self._input_window.get_key()
+            except self._input_window.input_exception:
+                pass
+            else:
+                if key == 'q':
+                    break
 
