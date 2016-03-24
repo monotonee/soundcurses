@@ -151,7 +151,7 @@ class StdscrWindow(CursesWindow):
         case stdscr to overlap other windows.
 
         """
-
+        self._window.nodelay(True)
         self._update_virtual_state()
 
 

@@ -9,8 +9,11 @@ class CursesController:
 
     """
 
-    def __init(self, input_window, view):
-        """ The input_window is the curses window from which user input is taken.
+    def __init__(self, input_window, view):
+        """ input_window is the curses window from which user input is polled.
+
+        input_window Is expected to have nodelay mode enabled but nothing
+        should break if it is not.
 
         """
 
@@ -24,12 +27,12 @@ class CursesController:
 
         """
 
-        self._input_window.nodelay()
         while True:
             key = None
             try:
-                key = self.key_window.getkey()
+                key = self._input_window.getkey()
             except Exception:
-                print(sys.exc_infor()[2]
-                break
+                raise
+                # print(sys.exc_info()[2])
+
 
