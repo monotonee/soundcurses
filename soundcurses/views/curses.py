@@ -75,6 +75,10 @@ class CursesView:
         # Make cursor invisible.
         self._curses.curs_set(0)
 
+        # Establish color pairs.
+        self._curses.init_pair(
+            1, self._curses.COLOR_BLACK, self._curses.COLOR_YELLOW)
+
     def _render(self):
         """ Render virtual curses state to physical screen.
 
@@ -151,7 +155,13 @@ class HeaderWindow(CursesWindow):
     """
 
     def _configure_window(self):
-        self._window.border()
+        # pass
+        # self._curses.init_color(1, 25, 119, 0)
+        # self._curses.init_pair(
+            # 1, self._curses.COLOR_BLACK, self._curses.COLOR_CYAN)
+        self._window.bkgd(
+            ' ', self._curses.color_pair(1))
+        self._window.addstr(0, 0, str(self._curses.has_colors()))
         self._update_virtual_state()
 
 
