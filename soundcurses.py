@@ -9,7 +9,7 @@ import sys
 import time
 
 # Local imports.
-import soundcurses.views.curses
+import soundcurses
 
 def main(stdscr):
     # Compose curses windows and pads.
@@ -34,12 +34,6 @@ def main(stdscr):
         content_window)
     time.sleep(2)
 
-    key = 0
-    stdscr.nodelay(1)
-    while key != 'q':
-        try:
-            key = stdscr.getkey()
-        except Exception:
-            pass
+
 
 curses.wrapper(main)

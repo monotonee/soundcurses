@@ -16,8 +16,9 @@ class CursesView:
         """ Initialize the curses standard (main) screen and window hierarchy.
 
         curses - The curses library interface.
-        stdscr - A reference to a curses standard screen (main window).
         locale - A reference to the Python standard library locale interface.
+        stdscr_window - A reference to a curses standard screen (main window).
+            Needed so that window refresh order can be properly maintained.
 
         _character_encoding - Saves a reference to the character encoding used
             if it becomes necessary to convert byte streams into characters.
@@ -146,7 +147,12 @@ class StdscrWindow(CursesWindow):
     """
 
     def _configure_window(self):
-        pass
+        """ Perform an empty update so that subsequent calls to refresh don't
+        case stdscr to overlap other windows.
+
+        """
+
+        self._update_virtual_state()
 
 
 class HeaderWindow(CursesWindow):
