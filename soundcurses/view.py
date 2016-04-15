@@ -78,7 +78,7 @@ class CursesView:
 
         # Establish color pairs.
         self._curses.init_pair(
-            1, self._curses.COLOR_BLACK, self._curses.COLOR_YELLOW)
+            1, self._curses.COLOR_WHITE, self._curses.COLOR_BLUE)
 
     def _render(self):
         """ Render virtual curses state to physical screen.
@@ -101,7 +101,8 @@ class CursesView:
 class CursesWindow(metaclass=abc.ABCMeta):
     """ Defines an abstract base class that encapsulates a layout region.
 
-    These are passed to the curses view which then manipulates the windows' content.
+    These are passed to the curses view which then manipulates the windows'
+    content.
 
     """
 
@@ -149,7 +150,7 @@ class StdscrWindow(CursesWindow):
 
     def _configure_window(self):
         """ Perform an empty update so that subsequent calls to refresh don't
-        case stdscr to overlap other windows.
+        cause stdscr to overlap other windows.
 
         """
         self._window.nodelay(True)
@@ -169,13 +170,9 @@ class HeaderWindow(CursesWindow):
     """
 
     def _configure_window(self):
-        # pass
-        # self._curses.init_color(1, 25, 119, 0)
-        # self._curses.init_pair(
-            # 1, self._curses.COLOR_BLACK, self._curses.COLOR_CYAN)
-        self._window.bkgd(
-            ' ', self._curses.color_pair(1))
-        self._window.addstr(0, 0, str(self._curses.has_colors()))
+        self._window.bkgd(' ', self._curses.color_pair(1))
+        self._window.addstr(
+            1, 2, 'Current user: Monotonee', self._curses.A_BOLD)
         self._update_virtual_state()
 
 
