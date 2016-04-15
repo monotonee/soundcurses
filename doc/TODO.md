@@ -7,3 +7,4 @@ what if user tries to run entry script from outside terminal window?
 account for window resize
 change window title bar text if in window?
 use curses.wrapper()?
+reevaluate curses automatically starting in view __init__?
