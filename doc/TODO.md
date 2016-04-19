@@ -8,3 +8,4 @@ account for window resize
 change window title bar text if in window?
 use curses.wrapper()?
 reevaluate curses automatically starting in view __init__?
+Reevaluate strict use of IoC. Favor unittest.mock instead?
