@@ -2,22 +2,61 @@
 
 """
 
-from soundcurses.views import ViewCurses
+# Standard library imports.
+import curses
+import locale
 import sys
 import time
 
-def main():
+# Third-party imports.
+import soundcloud
 
-    # Temporary try/catch during testing
-    # This is bad form.
-    view = None
-    try:
-        view = ViewCurses()
-        time.sleep(5)
-        view.destroy()
-    finally:
-        print('You dun goofed', sys.exc_info()[0])
-        view.destroy()
-        raise
+# Local imports.
+import soundcurses.controller
+import soundcurses.model
+import soundcurses.view
 
-main()
+def main(stdscr):
+    """ Compose curses windows and pads.
+
+    """
+
+    # Instantiate main window (stdscr) and subwindows.
+    # The order of curses window refresh is important. To avoid the standard
+    # (main) screen overwriting subwindows, initialize it first.
+    stdscr_window = soundcurses.view.StdscrWindow(curses, stdscr)
+    header_window = soundcurses.view.HeaderWindow(
+        curses,
+        curses.newwin(3, curses.COLS, 0, 0))
+    nav_window = soundcurses.view.NavWindow(
+        curses,
+        curses.newwin(3, curses.COLS, 3, 0))
+    content_window = soundcurses.view.ContentWindow(
+        curses,
+        curses.newwin(curses.LINES - 6, curses.COLS, 6, 0))
+
+    # Compose view.
+    view = soundcurses.view.CursesView(
+        curses,
+        locale,
+        stdscr_window,
+        header_window,
+        nav_window,
+        content_window)
+
+    # Compose controller.
+    controller = soundcurses.controller.CursesController(
+        stdscr_window,
+        view)
+
+    # Compose model.
+    soundcloud_client = soundcloud.Client(
+        client_id='e9cd65934510bf631372af005c2f37b5',
+        use_ssl=True)
+    print(
+        soundcloud_client.get(
+            '/resolve', url='https://soundcloud.com/monotonee'))
+
+    model = soundcurses.model.CursesModel(soundcloud_client)
+
+curses.wrapper(main)
