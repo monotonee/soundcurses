@@ -10,37 +10,33 @@ import abc
 
 class CursesView:
 
-    def __init__(
-            self, curses, locale,
-            stdscr_window, header_window, nav_window, content_window):
+    def __init__(self, curses, locale, stdscr):
         """ Initialize the curses standard (main) screen and window hierarchy.
 
         curses - The curses library interface.
         locale - A reference to the Python standard library locale interface.
-        stdscr_window - A reference to a curses standard screen (main window).
-            Needed so that window refresh order can be properly maintained.
+        stdscr - A reference to a curses standard screen (main window).
+            Needed so that window refresh order can be properly maintained and
+            UI events can be captured. Traditional "stdscr" nomenclature used
+            to facilitate readability among those who are already familiar with
+            the C curses library.
 
         _character_encoding - Saves a reference to the character encoding used
             if it becomes necessary to convert byte streams into characters.
-        _window_bar_first - The first horizontal window bar. Often contains
-            current artist and track title.
-        _window_navigation - Displayed directly underneath the first bar. Often
+        _curses - A reference to the curses
+        _locale - Displayed directly underneath the first bar. Often
             displays a breadcrumb-like hierarchy of current resources, letting
             a user know where one is in the SoundCloud resource tree.
-        _window_content - The main window. Displays resource lists such as
+        _stdscr - The main window. Displays resource lists such as
             SoundCloud stream content, playlists, tracks, etc.
 
         """
-        # Retain passed arguments.
+
+        # Declare instance attributes.
+        self._character_encoding = None
         self._curses = curses
         self._locale = locale
-        self._window_stdscr = stdscr_window
-        self._window_header = header_window
-        self._window_nav = nav_window
-        self._window_content = content_window
-
-        # Declare other instance attributes.
-        self._character_encoding = None
+        self._stdscr = stdscr
 
         # Gather information and establish initial instance state.
         self._set_character_encoding()
