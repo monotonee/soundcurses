@@ -6,7 +6,8 @@ library.
 
 """
 
-import abc
+# import abc
+from collections import deque
 
 class CursesView:
 
@@ -30,29 +31,35 @@ class CursesView:
         _locale - Displayed directly underneath the first bar. Often
             displays a breadcrumb-like hierarchy of current resources, letting
             a user know where one is in the SoundCloud resource tree.
-        _window_stdscr - The main window. Displays resource lists such as
-            SoundCloud stream content, playlists, tracks, etc.
+        _window_stdscr - The main window.
+        _window_update_queue - A queue of window objects in order by refresh
+            priority. Deque used due to possibility of adding element to front
+            of queue, an operation for which a simple list is not optimized.
 
         """
         # Declare instance attributes.
+        # The virtual state of each window needs to be updated at least once
+        # in the proper order.
         self._character_encoding = None
         self._curses = curses
         self._locale = locale
+        self._window_update_queue = deque()
+
         self._window_stdscr = window_stdscr
-        self._window_header = window_header
-        self._window_nav = window_nav
-        self._window_content = window_content
+        self._schedule_window_update(window_stdscr)
+        self._subwindow_header = window_header
+        self._schedule_window_update(window_header)
+        self._subwindow_nav = window_nav
+        self._schedule_window_update(window_nav)
+        self._subwindow_content = window_content
+        self._schedule_window_update(window_content)
 
         # Gather information and establish initial instance state.
         self._set_character_encoding()
         self._configure_curses()
-        self._configure_subwindows()
-        self._render()
 
     def _configure_curses(self):
-        """ Immediately assumes control of the current TUI window.
-
-        Configues screen for presentation of common TUI.
+        """ Configues screen for presentation of curses application.
 
         See https://docs.python.org/3.5/howto/curses.html#curses-howto
 
@@ -72,14 +79,25 @@ class CursesView:
         self._curses.init_pair(
             1, self._curses.COLOR_WHITE, self._curses.COLOR_BLUE)
 
-    def _configure_subwindows(self):
-
-
-    def _render(self):
-        """ Render virtual curses state to physical screen.
+    def _execute_window_update_queue(self):
+        """ Iterate window virtual state update queue and execute update.
 
         """
-        self._curses.doupdate()
+        for window in self._window_update_queue:
+            window.update_virtual_state()
+        self._window_update_queue.clear()
+
+    def _schedule_window_update(self, window):
+        """ Push window objects into queue in order for virtual state update.
+
+        The main "stdscr" window must always be cheduled for refresh first so
+        that subwindow refreshes will be rendered "on top" of the main window.
+
+        """
+        if window is self._window_stdscr:
+            self._window_update_queue.appendleft(window)
+        else:
+            self._window_update_queue.append(window)
 
     def _set_character_encoding(self):
         """ Determine environment locale and get encoding.
@@ -90,15 +108,6 @@ class CursesView:
         # Set current locale to user default as specified in LANG env variable.
         self._locale.setlocale(self._locale.LC_ALL, '')
         self._character_encoding = self._locale.getpreferredencoding()
-
-    def start_input_polling(self):
-        """ Starts polling for input from curses windows.
-
-        """
-        while True:
-            char_code_point = self._window_stdscr.get_input()
-            if char_code_point == ord('q'):
-                break
 
     def destroy(self):
         """ Relinquish control of standard screen.
@@ -111,8 +120,24 @@ class CursesView:
         # Release window control.
         self._curses.endwin()
 
+    def render(self):
+        """ Render virtual curses state to physical screen.
 
-class CursesWindow(metaclass=abc.ABCMeta):
+        """
+        self._execute_window_update_queue()
+        self._curses.doupdate()
+
+    def start_input_polling(self):
+        """ Starts polling for input from curses windows.
+
+        """
+        while True:
+            char_code_point = self._window_stdscr.get_input()
+            if char_code_point == ord('q'):
+                break
+
+
+class CursesWindow:
     """ Defines an abstract base class that encapsulates a layout region.
 
     """
@@ -135,14 +160,11 @@ class CursesWindow(metaclass=abc.ABCMeta):
         # Gather information and establish initial instance state.
         self._configure_window()
 
-    @abc.abstractmethod
     def _configure_window(self):
         """ Configure window properties.
 
         Sets initial window state such as borders, colors, initial content, etc.
-        Only called during object construction.
-
-        Warning: make sure to call update_virtual_state() if necessary.
+        Designed to be called only during object construction.
 
         """
         pass
@@ -161,11 +183,7 @@ class StdscrWindow(CursesWindow):
     """
 
     def _configure_window(self):
-        """ Perform an empty update so that subsequent calls to refresh, either
-        explicit or implicit (such as in window.getkey()) don't cause stdscr to
-        overlap other windows.
-
-        Called in constructor.
+        """ Override parent method.
 
         """
         self._window.nodelay(True)
@@ -174,35 +192,43 @@ class StdscrWindow(CursesWindow):
         """ Wrapper for internal curses window instance method.
 
         """
-
         return self._window.getch()
 
 
 class HeaderWindow(CursesWindow):
-    """ A curses window that manages the header window.
+    """ A curses window that manages the header region.
 
     """
 
     def _configure_window(self):
+        """ Override parent method.
+
+        """
         self._window.bkgd(' ', self._curses.color_pair(1))
         self._window.addstr(
             1, 2, 'Current user: Monotonee', self._curses.A_BOLD)
 
 
 class NavWindow(CursesWindow):
-    """ A curses window that manages the navigation window.
+    """ A curses window that manages the navigation region.
 
     """
 
     def _configure_window(self):
+        """ Override parent method.
+
+        """
         self._window.border()
 
 class ContentWindow(CursesWindow):
-    """ A curses window that manages the content window.
+    """ A curses window that manages the content region.
 
     """
 
     def _configure_window(self):
+        """ Override parent method.
+
+        """
         self._window.border()
 
 

@@ -1,37 +1,43 @@
-""" Defines control-type classes.
+""" Defines classes that act as application or GUI component controllers.
 
 """
 
-class CursesController:
-    """ Handles user input receipt and response.
+class MainController:
+    """ Top-evel interface for application controller actions.
+
+    Implements a basic state pattern to provide state switching for TUI region
+    focus. For instance, arrow key presses when the nav region has focus will
+    highlight nav options while arrow keys will scroll track list when content
+    region is in focus.
 
     """
 
-    def __init__(self, input_window, view):
-        """ input_window is the curses window from which user input is polled.
-
-        input_window Is expected to have nodelay mode enabled but nothing
-        should break if it is not.
+    def __init__(self, view):
+        """ Constructor.
 
         """
 
-        self._input_window = input_window
         self._view = view
 
-        self._start_main_loop()
-
-    def _start_main_loop(self):
-        """ Contains main loop that will wait for and handle input.
+    def _start_input_polling(self):
+        """ Starts the view's input polling loop, essentially starting the app.
 
         """
+        self._view.render()
+        self._view.start_input_polling()
+        self._view.destroy()
 
-        while True:
-            key = None
-            try:
-                key = self._input_window.get_key()
-            except self._input_window.input_exception:
-                pass
-            else:
-                if key == 'q':
-                    break
+    def start_application(self):
+        self._start_input_polling()
 
+
+# class NavController
+    # """ Handles logic behind nav window.
+
+    # """
+
+    # def __init__(self, nav_view):
+        # """
+
+        # """
+        # self._nav_view = nav_view

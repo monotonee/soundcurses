@@ -46,6 +46,7 @@ def main(stdscr):
 
     # Compose controller.
     controller = soundcurses.controller.MainController(view)
+    controller.start_application()
 
     # Compose model.
     # soundcloud_client = soundcloud.Client(
