@@ -19,6 +19,8 @@ import soundcurses.view
 def main(stdscr):
     """ Compose curses windows and pads.
 
+    Note that stdscr is passed into the main function by curses.wrapper().
+
     """
 
     # Instantiate main window (stdscr) and subwindows.
@@ -34,15 +36,19 @@ def main(stdscr):
     window_content = soundcurses.view.ContentWindow(
         curses,
         curses.newwin(curses.LINES - 6, curses.COLS, 6, 0))
+    curses_screen = soundcurses.view.CursesScreen(
+        curses,
+        window_stdscr,
+        window_header,
+        window_nav,
+        window_content
+    )
 
     # Compose view.
     view = soundcurses.view.CursesView(
         curses,
         locale,
-        window_stdscr,
-        window_header,
-        window_nav,
-        window_content)
+        curses_screen)
 
     # Compose controller.
     controller = soundcurses.controller.MainController(view)

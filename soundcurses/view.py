@@ -11,9 +11,7 @@ from collections import deque
 
 class CursesView:
 
-    def __init__(
-        self, curses, locale,
-        window_stdscr, window_header, window_nav, window_content):
+    def __init__(self, curses, locale, screen):
         """ Construct the curses standard (main) screen and window hierarchy.
 
         curses - The curses library interface.
@@ -32,9 +30,6 @@ class CursesView:
             displays a breadcrumb-like hierarchy of current resources, letting
             a user know where one is in the SoundCloud resource tree.
         _window_stdscr - The main window.
-        _window_update_queue - A queue of window objects in order by refresh
-            priority. Deque used due to possibility of adding element to front
-            of queue, an operation for which a simple list is not optimized.
 
         """
         # Declare instance attributes.
@@ -43,16 +38,17 @@ class CursesView:
         self._character_encoding = None
         self._curses = curses
         self._locale = locale
-        self._window_update_queue = deque()
+        self._screen = screen
 
-        self._window_stdscr = window_stdscr
-        self._schedule_window_update(window_stdscr)
-        self._subwindow_header = window_header
-        self._schedule_window_update(window_header)
-        self._subwindow_nav = window_nav
-        self._schedule_window_update(window_nav)
-        self._subwindow_content = window_content
-        self._schedule_window_update(window_content)
+        # self._window_update_queue = deque()
+        # self._window_stdscr = window_stdscr
+        # self._schedule_window_update(window_stdscr)
+        # self._subwindow_header = window_header
+        # self._schedule_window_update(window_header)
+        # self._subwindow_nav = window_nav
+        # self._schedule_window_update(window_nav)
+        # self._subwindow_content = window_content
+        # self._schedule_window_update(window_content)
 
         # Gather information and establish initial instance state.
         self._set_character_encoding()
@@ -79,26 +75,6 @@ class CursesView:
         self._curses.init_pair(
             1, self._curses.COLOR_WHITE, self._curses.COLOR_BLUE)
 
-    def _execute_window_update_queue(self):
-        """ Iterate window virtual state update queue and execute update.
-
-        """
-        for window in self._window_update_queue:
-            window.update_virtual_state()
-        self._window_update_queue.clear()
-
-    def _schedule_window_update(self, window):
-        """ Push window objects into queue in order for virtual state update.
-
-        The main "stdscr" window must always be cheduled for refresh first so
-        that subwindow refreshes will be rendered "on top" of the main window.
-
-        """
-        if window is self._window_stdscr:
-            self._window_update_queue.appendleft(window)
-        else:
-            self._window_update_queue.append(window)
-
     def _set_character_encoding(self):
         """ Determine environment locale and get encoding.
 
@@ -124,8 +100,7 @@ class CursesView:
         """ Render virtual curses state to physical screen.
 
         """
-        self._execute_window_update_queue()
-        self._curses.doupdate()
+        self._screen.render()
 
     def start_input_polling(self):
         """ Starts polling for input from curses windows.
@@ -149,13 +124,12 @@ class CursesWindow:
         window - A raw curses window object.
 
         """
-        # Retain passed arguments.
+        # Declare instance attributes.
         self._curses = curses
         self._window = window
-
-        # Declare instance attributes.
         self.input_exception = curses.error
-        self.virtual_state_updated = False
+        self.render_priority = 0
+        self.virtual_state_requires_update = True
 
         # Gather information and establish initial instance state.
         self._configure_window()
@@ -170,11 +144,12 @@ class CursesWindow:
         pass
 
     def update_virtual_state(self):
-        """ Writes window state to curses' virtual screen state.
+        """ Writes window state to curses' virtual screen state regardless of
+        necessity of doing so.
 
         """
         self._window.noutrefresh()
-        self.virtual_state_updated = True
+        self._virtual_state_requires_update = False
 
 
 class StdscrWindow(CursesWindow):
@@ -187,6 +162,7 @@ class StdscrWindow(CursesWindow):
 
         """
         self._window.nodelay(True)
+        self.render_priority = 1
 
     def get_input(self):
         """ Wrapper for internal curses window instance method.
@@ -220,6 +196,7 @@ class NavWindow(CursesWindow):
         """
         self._window.border()
 
+
 class ContentWindow(CursesWindow):
     """ A curses window that manages the content region.
 
@@ -232,5 +209,43 @@ class ContentWindow(CursesWindow):
         self._window.border()
 
 
+class CursesScreen:
+    """ Makes sure that curses windows' states are written to virtual screen
+    in the correct order. Manages rendering of virtual state to screen.
 
+    _window_update_queue - A queue of window objects in order by refresh
+        priority. Deque used due to possibility of adding element to front
+        of queue, an operation for which a simple list is not optimized.
 
+    """
+
+    def __init__(self, curses, window_stdscr, *args):
+        self._curses = curses
+        self._windows = [window for window in args]
+        self._window_stdscr = window_stdscr
+        self._window_update_queue = deque()
+
+    def _execute_update_queue(self):
+        """ Iterate window virtual state update queue and execute updates.
+
+        """
+        for window in self._window_update_queue:
+            window.update_virtual_state()
+        self._window_update_queue.clear()
+
+    def schedule_window_update(self, window):
+        """ Push window objects into queue for virtual state update in order.
+
+        The main "stdscr" window must always be scheduled for refresh first so
+        that subwindow refreshes will be rendered "on top" of the main window.
+
+        """
+        if window.virtual_state_requires_update == True:
+            if window is self._window_stdscr:
+                self._window_update_queue.appendleft(window)
+            else:
+                self._window_update_queue.append(window)
+
+    def render(self):
+        self._execute_update_queue()
+        self._curses.doupdate()
