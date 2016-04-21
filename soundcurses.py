@@ -26,28 +26,29 @@ def main(stdscr):
     # Instantiate main window (stdscr) and subwindows.
     # The order of curses window refresh is important. To avoid the standard
     # (main) screen overwriting subwindows, initialize it first.
-    window_stdscr = soundcurses.view.StdscrWindow(curses, stdscr)
+    curses_wrapper = soundcurses.view.CursesWrapper(curses, locale)
+    window_stdscr = soundcurses.view.StdscrWindow(curses_wrapper, stdscr)
     window_header = soundcurses.view.HeaderWindow(
-        curses,
-        curses.newwin(3, curses.COLS, 0, 0))
+        curses_wrapper,
+        curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0))
     window_nav = soundcurses.view.NavWindow(
-        curses,
-        curses.newwin(3, curses.COLS, 3, 0))
+        curses_wrapper,
+        curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0))
     window_content = soundcurses.view.ContentWindow(
-        curses,
-        curses.newwin(curses.LINES - 6, curses.COLS, 6, 0))
+        curses_wrapper,
+        curses_wrapper.newwin(
+            curses_wrapper.LINES - 6,
+            curses_wrapper.COLS, 6, 0))
     curses_screen = soundcurses.view.CursesScreen(
-        curses,
+        curses_wrapper,
         window_stdscr,
         window_header,
         window_nav,
-        window_content
-    )
+        window_content)
 
     # Compose view.
     view = soundcurses.view.CursesView(
-        curses,
-        locale,
+        curses_wrapper,
         curses_screen)
 
     # Compose controller.

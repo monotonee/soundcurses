@@ -19,16 +19,16 @@ class MainController:
 
         self._view = view
 
-    def _start_input_polling(self):
+    def _poll_input(self):
         """ Starts the view's input polling loop, essentially starting the app.
 
         """
         self._view.render()
-        self._view.start_input_polling()
+        self._view.poll_input()
         self._view.destroy()
 
     def start_application(self):
-        self._start_input_polling()
+        self._poll_input()
 
 
 # class NavController

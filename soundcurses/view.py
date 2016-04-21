@@ -11,7 +11,7 @@ from collections import deque
 
 class CursesView:
 
-    def __init__(self, curses, locale, screen):
+    def __init__(self, curses, screen):
         """ Construct the curses standard (main) screen and window hierarchy.
 
         curses - The curses library interface.
@@ -33,68 +33,15 @@ class CursesView:
 
         """
         # Declare instance attributes.
-        # The virtual state of each window needs to be updated at least once
-        # in the proper order.
-        self._character_encoding = None
         self._curses = curses
-        self._locale = locale
         self._screen = screen
 
-        # self._window_update_queue = deque()
-        # self._window_stdscr = window_stdscr
-        # self._schedule_window_update(window_stdscr)
-        # self._subwindow_header = window_header
-        # self._schedule_window_update(window_header)
-        # self._subwindow_nav = window_nav
-        # self._schedule_window_update(window_nav)
-        # self._subwindow_content = window_content
-        # self._schedule_window_update(window_content)
-
-        # Gather information and establish initial instance state.
-        self._set_character_encoding()
-        self._configure_curses()
-
-    def _configure_curses(self):
-        """ Configues screen for presentation of curses application.
-
-        See https://docs.python.org/3.5/howto/curses.html#curses-howto
-
-        From https://docs.python.org/3.5/library/curses.html#curses.initscr
-        "If there is an error opening the terminal, the underlying curses
-        library may cause the interpreter to exit."
-
-        curses.initscr() must be called before curses.savetty().
-
-        """
-        # Save current state.
-        self._curses.savetty()
-        # Make cursor invisible.
-        self._curses.curs_set(0)
-
-        # Establish color pairs.
-        self._curses.init_pair(
-            1, self._curses.COLOR_WHITE, self._curses.COLOR_BLUE)
-
-    def _set_character_encoding(self):
-        """ Determine environment locale and get encoding.
-
-        See https://docs.python.org/3.5/library/curses.html
-
-        """
-        # Set current locale to user default as specified in LANG env variable.
-        self._locale.setlocale(self._locale.LC_ALL, '')
-        self._character_encoding = self._locale.getpreferredencoding()
-
     def destroy(self):
-        """ Relinquish control of standard screen.
-
-        Also returns window settings to original values.
+        """ Relinquish control of the screen. Also returns window settings
+        not set by curses.wrapper() to original values.
 
         """
-        # Restore original terminal configuration.
-        self._curses.resetty()
-        # Release window control.
-        self._curses.endwin()
+        self._curses.destroy()
 
     def render(self):
         """ Render virtual curses state to physical screen.
@@ -102,14 +49,11 @@ class CursesView:
         """
         self._screen.render()
 
-    def start_input_polling(self):
+    def poll_input(self):
         """ Starts polling for input from curses windows.
 
         """
-        while True:
-            char_code_point = self._window_stdscr.get_input()
-            if char_code_point == ord('q'):
-                break
+        self._screen.poll_input()
 
 
 class CursesWindow:
@@ -164,7 +108,7 @@ class StdscrWindow(CursesWindow):
         self._window.nodelay(True)
         self.render_priority = 1
 
-    def get_input(self):
+    def getch(self):
         """ Wrapper for internal curses window instance method.
 
         """
@@ -225,13 +169,33 @@ class CursesScreen:
         self._window_stdscr = window_stdscr
         self._window_update_queue = deque()
 
+        # New windows require initial update. Attempt to add ALL to update queue
+        # in case initial virtual state update has not been completed.
+        # Note list expansion in temporary list below.
+        for window in [*self._windows, self._window_stdscr]:
+            self.schedule_window_update(window)
+
     def _execute_update_queue(self):
         """ Iterate window virtual state update queue and execute updates.
 
         """
-        for window in self._window_update_queue:
-            window.update_virtual_state()
-        self._window_update_queue.clear()
+        if self._window_update_queue:
+            for window in self._window_update_queue:
+                window.update_virtual_state()
+            self._window_update_queue.clear()
+
+    def poll_input(self):
+        """ Starts polling for input from curses windows.
+
+        """
+        while True:
+            code_point = self._window_stdscr.getch()
+            if code_point == ord('q'):
+                break
+
+    def render(self):
+        self._execute_update_queue()
+        self._curses.doupdate()
 
     def schedule_window_update(self, window):
         """ Push window objects into queue for virtual state update in order.
@@ -240,12 +204,72 @@ class CursesScreen:
         that subwindow refreshes will be rendered "on top" of the main window.
 
         """
-        if window.virtual_state_requires_update == True:
+        if window.virtual_state_requires_update:
             if window is self._window_stdscr:
                 self._window_update_queue.appendleft(window)
             else:
                 self._window_update_queue.append(window)
 
-    def render(self):
-        self._execute_update_queue()
-        self._curses.doupdate()
+
+class CursesWrapper:
+    """ Wraps the bare curses library interface, applying desired configurations
+    at construction and passing calls through to underlying curses object.
+
+    """
+    def __init__(self, curses, locale):
+        self._character_encoding = None
+        self._curses = curses
+        self._locale = locale
+
+        self._configure()
+        self._set_character_encoding()
+
+    def __getattr__(self, name):
+        """ According to my current knowledge, allows attribute access
+        passthrough to underlying curses object. If attribute is nonexistent,
+        AttributeError is raised by getattr() and allowed to bubble.
+
+        """
+        return getattr(self._curses, name)
+
+    def _configure(self):
+        """ Applies necessary setup configurations for app.
+
+        See https://docs.python.org/3.5/howto/curses.html#curses-howto
+
+        From https://docs.python.org/3.5/library/curses.html#curses.initscr
+        "If there is an error opening the terminal, the underlying curses
+        library may cause the interpreter to exit."
+
+        Note: curses.initscr() must be called before curses.savetty().
+
+        """
+        # Save current state.
+        self._curses.savetty()
+        # Make cursor invisible.
+        self._curses.curs_set(0)
+
+        # Define color pairs.
+        self._curses.init_pair(
+            1, self._curses.COLOR_WHITE, self._curses.COLOR_BLUE)
+
+    def _set_character_encoding(self):
+        """ Determine environment locale and get encoding.
+
+        See https://docs.python.org/3.5/library/curses.html
+
+        """
+        # Set current locale to user default as specified in LANG env variable.
+        self._locale.setlocale(self._locale.LC_ALL, '')
+        self._character_encoding = self._locale.getpreferredencoding()
+
+    def destroy(self):
+        """ Relinquish control of the screen. Also returns window settings
+        not set by curses.wrapper() to original values.
+
+        """
+        # Restore original terminal configuration.
+        self._curses.resetty()
+        # Release window control.
+        self._curses.endwin()
+
