@@ -9,3 +9,7 @@ change window title bar text if in window?
 use curses.wrapper()?
 reevaluate curses automatically starting in view __init__?
 Reevaluate strict use of IoC. Favor unittest.mock instead?
+config file
+signals
+facade services to reduce constructor injection param count
+handle renderer update order collisions
