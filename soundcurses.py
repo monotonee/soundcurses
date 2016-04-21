@@ -9,6 +9,7 @@ import sys
 import time
 
 # Third-party imports.
+import signalslot
 import soundcloud
 
 # Local imports.
@@ -23,10 +24,8 @@ def main(stdscr):
 
     """
 
-    # Instantiate main window (stdscr) and subwindows.
-    # The order of curses window refresh is important. To avoid the standard
-    # (main) screen overwriting subwindows, initialize it first.
     curses_wrapper = soundcurses.view.CursesWrapper(curses, locale)
+
     window_stdscr = soundcurses.view.StdscrWindow(curses_wrapper, stdscr)
     window_header = soundcurses.view.HeaderWindow(
         curses_wrapper,
@@ -39,6 +38,8 @@ def main(stdscr):
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
             curses_wrapper.COLS, 6, 0))
+
+    # Compose screen.
     curses_screen = soundcurses.view.CursesScreen(
         curses_wrapper,
         window_stdscr,
@@ -46,13 +47,19 @@ def main(stdscr):
         window_nav,
         window_content)
 
+    # Compose input source.
+    signal_keypress = signalslot.Signal(args=['code_point'])
+    input_source = soundcurses.view.InputSource(window_stdscr, signal_keypress)
+
     # Compose view.
     view = soundcurses.view.CursesView(
         curses_wrapper,
+        input_source,
         curses_screen)
 
     # Compose controller.
     controller = soundcurses.controller.MainController(view)
+    signal_keypress.connect(controller.handle_input_keypress)
     controller.start_application()
 
     # Compose model.

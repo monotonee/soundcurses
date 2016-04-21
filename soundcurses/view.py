@@ -11,7 +11,7 @@ from collections import deque
 
 class CursesView:
 
-    def __init__(self, curses, screen):
+    def __init__(self, curses, input_source, screen):
         """ Construct the curses standard (main) screen and window hierarchy.
 
         curses - The curses library interface.
@@ -34,6 +34,7 @@ class CursesView:
         """
         # Declare instance attributes.
         self._curses = curses
+        self._input_source = input_source
         self._screen = screen
 
     def destroy(self):
@@ -49,11 +50,14 @@ class CursesView:
         """
         self._screen.render()
 
-    def poll_input(self):
+    def start_input_polling(self):
         """ Starts polling for input from curses windows.
 
         """
-        self._screen.poll_input()
+        self._input_source.start()
+
+    def stop_input_polling(self):
+        self._input_source.stop()
 
 
 class CursesWindow:
@@ -184,15 +188,6 @@ class CursesScreen:
                 window.update_virtual_state()
             self._window_update_queue.clear()
 
-    def poll_input(self):
-        """ Starts polling for input from curses windows.
-
-        """
-        while True:
-            code_point = self._window_stdscr.getch()
-            if code_point == ord('q'):
-                break
-
     def render(self):
         self._execute_update_queue()
         self._curses.doupdate()
@@ -273,3 +268,29 @@ class CursesWrapper:
         # Release window control.
         self._curses.endwin()
 
+
+class InputSource:
+    """ Manages the polling for user input.
+
+    """
+    def __init__(self, window, signal_keypress):
+        self._window = window
+        self._signal_keypress = signal_keypress
+        self._poll_input = True
+
+    def start(self):
+        """ Starts polling for input from window.
+
+        """
+        self._poll_input = True
+        while self._poll_input:
+            code_point = self._window.getch()
+            if code_point > -1:
+                self._signal_keypress.emit(code_point=code_point)
+
+    def stop(self):
+        """ Sets input polling loop sentinel value to Boolean false, breaking
+        the polling loop if currently running.
+
+        """
+        self._poll_input = False
