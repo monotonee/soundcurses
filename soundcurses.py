@@ -5,8 +5,6 @@
 # Standard library imports.
 import curses
 import locale
-import sys
-import time
 
 # Third-party imports.
 import signalslot
@@ -51,15 +49,29 @@ def main(stdscr):
 
     # Compose input source.
     signal_keypress = signalslot.Signal(args=['code_point'])
-    input_source = soundcurses.curses.components.InputSource(window_stdscr, signal_keypress)
+    input_source = soundcurses.curses.components.InputSource(
+        window_stdscr,
+        signal_keypress)
 
-    # Compose view.
+    # Compose views.
     main_view = soundcurses.curses.views.MainView(
         input_source,
         curses_screen)
+    header_region_view = soundcurses.curses.views.HeaderRegionView(
+        window_header)
+    nav_region_view = soundcurses.curses.views.NavRegionView(window_nav)
+    content_region_view = soundcurses.curses.views.ContentRegionView(
+        window_content)
 
-    # Compose controller.
-    main_controller = soundcurses.controllers.MainController(main_view)
+    # Compose controllers.
+    nav_controller = soundcurses.controllers.NavRegionController(
+        nav_region_view)
+    content_controller = soundcurses.controllers.ContentRegionController(
+        content_region_view)
+    main_controller = soundcurses.controllers.MainController(
+        main_view,
+        nav_controller,
+        content_controller)
     signal_keypress.connect(main_controller.handle_input_keypress)
     main_controller.start_application()
 

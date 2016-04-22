@@ -2,6 +2,8 @@
 
 """
 
+import abc
+
 class MainController:
     """ Top-evel interface for application controller actions.
 
@@ -12,12 +14,15 @@ class MainController:
 
     """
 
-    def __init__(self, main_view):
+    def __init__(self, main_view, controller_nav, controller_content):
         """ Constructor.
 
         """
 
+        self._controller_nav = controller_nav
+        self._controller_content = controller_content
         self._main_view = main_view
+        self._state_region_context = self._controller_nav
 
     def handle_input_keypress(self, code_point, **kwargs):
         """ Slot that handles keypress events from the view.
@@ -34,13 +39,38 @@ class MainController:
         self._main_view.stop()
 
 
-# class NavController
-    # """ Handles logic behind nav window.
+class RegionController(metaclass=abc.ABCMeta):
+    """ An abstract base class for a specialized "subcontroller" that is
+    designed to manipulate an individual region or "window" of the TUI.
 
-    # """
+    """
 
-    # def __init__(self, nav_view):
-        # """
+    def __init__(self, region_view):
+        self._region_view = region_view
 
-        # """
-        # self._nav_view = nav_view
+    @abc.abstractmethod
+    def handle_input_keypress(self, code_point):
+        """ Accept an integer code point from a keypress and take action.
+
+        """
+        pass
+
+
+class NavRegionController(RegionController):
+    """ Designed for specialized control of the navigation region of the TUI.
+
+    """
+
+    def handle_input_keypress(self, code_point):
+        pass
+
+
+class ContentRegionController(RegionController):
+    """ Designed for specialized control of the content region of the TUI.
+
+    """
+
+    def handle_input_keypress(self, code_point):
+        pass
+
+
