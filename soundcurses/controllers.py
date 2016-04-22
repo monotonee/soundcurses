@@ -12,12 +12,12 @@ class MainController:
 
     """
 
-    def __init__(self, view):
+    def __init__(self, main_view):
         """ Constructor.
 
         """
 
-        self._view = view
+        self._main_view = main_view
 
     def handle_input_keypress(self, code_point, **kwargs):
         """ Slot that handles keypress events from the view.
@@ -26,12 +26,12 @@ class MainController:
 
         """
         if code_point == ord('q'):
-            self._view.stop_input_polling()
+            self._main_view.stop_input_polling()
 
     def start_application(self):
-        self._view.render()
-        self._view.start_input_polling()
-        self._view.destroy()
+        self._main_view.start()
+        self._main_view.start_input_polling()
+        self._main_view.stop()
 
 
 # class NavController

@@ -1,161 +1,9 @@
-""" Supplies a text-based user interface library wrapper object.
-
-Designed to provide an additional layer of abstraction between the application
-and the chosen text-based user interface library (TUI), in this case the curses
-library.
+""" This module defines a series of wrappers and facade service classes designed
+to compose other classes with more coarsely-defined interfaces.
 
 """
 
-# import abc
 from collections import deque
-
-class CursesView:
-
-    def __init__(self, curses, input_source, screen):
-        """ Construct the curses standard (main) screen and window hierarchy.
-
-        curses - The curses library interface.
-        locale - A reference to the Python standard library locale interface.
-        window_stdscr - A reference to a curses standard screen (main window).
-            Needed so that window refresh order can be properly maintained and
-            UI events can be captured. Traditional "stdscr" nomenclature used
-            to facilitate readability among those who are already familiar with
-            the C curses library. Prefixed with "window" to denote custom
-            wrapper class around the raw curses stdscr.
-
-        _character_encoding - Saves a reference to the character encoding used
-            if it becomes necessary to convert byte streams into characters.
-        _curses - A reference to the curses
-        _locale - Displayed directly underneath the first bar. Often
-            displays a breadcrumb-like hierarchy of current resources, letting
-            a user know where one is in the SoundCloud resource tree.
-        _window_stdscr - The main window.
-
-        """
-        # Declare instance attributes.
-        self._curses = curses
-        self._input_source = input_source
-        self._screen = screen
-
-    def destroy(self):
-        """ Relinquish control of the screen. Also returns window settings
-        not set by curses.wrapper() to original values.
-
-        """
-        self._curses.destroy()
-
-    def render(self):
-        """ Render virtual curses state to physical screen.
-
-        """
-        self._screen.render()
-
-    def start_input_polling(self):
-        """ Starts polling for input from curses windows.
-
-        """
-        self._input_source.start()
-
-    def stop_input_polling(self):
-        self._input_source.stop()
-
-
-class CursesWindow:
-    """ Defines an abstract base class that encapsulates a layout region.
-
-    """
-
-    def __init__(self, curses, window):
-        """ Constructor.
-
-        curses - The curses library interface.
-        window - A raw curses window object.
-
-        """
-        # Declare instance attributes.
-        self._curses = curses
-        self._window = window
-        self.input_exception = curses.error
-        self.render_priority = 0
-        self.virtual_state_requires_update = True
-
-        # Gather information and establish initial instance state.
-        self._configure_window()
-
-    def _configure_window(self):
-        """ Configure window properties.
-
-        Sets initial window state such as borders, colors, initial content, etc.
-        Designed to be called only during object construction.
-
-        """
-        pass
-
-    def update_virtual_state(self):
-        """ Writes window state to curses' virtual screen state regardless of
-        necessity of doing so.
-
-        """
-        self._window.noutrefresh()
-        self._virtual_state_requires_update = False
-
-
-class StdscrWindow(CursesWindow):
-    """ Abstracts the main "stdscr" curses window.
-
-    """
-
-    def _configure_window(self):
-        """ Override parent method.
-
-        """
-        self._window.nodelay(True)
-        self.render_priority = 1
-
-    def getch(self):
-        """ Wrapper for internal curses window instance method.
-
-        """
-        return self._window.getch()
-
-
-class HeaderWindow(CursesWindow):
-    """ A curses window that manages the header region.
-
-    """
-
-    def _configure_window(self):
-        """ Override parent method.
-
-        """
-        self._window.bkgd(' ', self._curses.color_pair(1))
-        self._window.addstr(
-            1, 2, 'Current user: Monotonee', self._curses.A_BOLD)
-
-
-class NavWindow(CursesWindow):
-    """ A curses window that manages the navigation region.
-
-    """
-
-    def _configure_window(self):
-        """ Override parent method.
-
-        """
-        self._window.border()
-
-
-class ContentWindow(CursesWindow):
-    """ A curses window that manages the content region.
-
-    """
-
-    def _configure_window(self):
-        """ Override parent method.
-
-        """
-        self._window.border()
-
 
 class CursesScreen:
     """ Makes sure that curses windows' states are written to virtual screen
@@ -187,6 +35,13 @@ class CursesScreen:
             for window in self._window_update_queue:
                 window.update_virtual_state()
             self._window_update_queue.clear()
+
+    def destroy(self):
+        """ Relinquish control of the screen. Also returns window settings
+        not set by curses.wrapper() to original values.
+
+        """
+        self._curses.destroy()
 
     def render(self):
         self._execute_update_queue()
@@ -270,7 +125,7 @@ class CursesWrapper:
 
 
 class InputSource:
-    """ Manages the polling for user input.
+    """ Manages the polling for user input and the issuing of keypress signals.
 
     """
     def __init__(self, window, signal_keypress):

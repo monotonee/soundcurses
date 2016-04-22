@@ -13,9 +13,11 @@ import signalslot
 import soundcloud
 
 # Local imports.
-import soundcurses.controller
+import soundcurses.controllers
 import soundcurses.model
-import soundcurses.view
+import soundcurses.curses.components
+import soundcurses.curses.views
+import soundcurses.curses.windows
 
 def main(stdscr):
     """ Compose curses windows and pads.
@@ -24,23 +26,23 @@ def main(stdscr):
 
     """
 
-    curses_wrapper = soundcurses.view.CursesWrapper(curses, locale)
+    curses_wrapper = soundcurses.curses.components.CursesWrapper(curses, locale)
 
-    window_stdscr = soundcurses.view.StdscrWindow(curses_wrapper, stdscr)
-    window_header = soundcurses.view.HeaderWindow(
+    window_stdscr = soundcurses.curses.windows.StdscrWindow(curses_wrapper, stdscr)
+    window_header = soundcurses.curses.windows.HeaderWindow(
         curses_wrapper,
         curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0))
-    window_nav = soundcurses.view.NavWindow(
+    window_nav = soundcurses.curses.windows.NavWindow(
         curses_wrapper,
         curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0))
-    window_content = soundcurses.view.ContentWindow(
+    window_content = soundcurses.curses.windows.ContentWindow(
         curses_wrapper,
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
             curses_wrapper.COLS, 6, 0))
 
     # Compose screen.
-    curses_screen = soundcurses.view.CursesScreen(
+    curses_screen = soundcurses.curses.components.CursesScreen(
         curses_wrapper,
         window_stdscr,
         window_header,
@@ -49,18 +51,17 @@ def main(stdscr):
 
     # Compose input source.
     signal_keypress = signalslot.Signal(args=['code_point'])
-    input_source = soundcurses.view.InputSource(window_stdscr, signal_keypress)
+    input_source = soundcurses.curses.components.InputSource(window_stdscr, signal_keypress)
 
     # Compose view.
-    view = soundcurses.view.CursesView(
-        curses_wrapper,
+    main_view = soundcurses.curses.views.MainView(
         input_source,
         curses_screen)
 
     # Compose controller.
-    controller = soundcurses.controller.MainController(view)
-    signal_keypress.connect(controller.handle_input_keypress)
-    controller.start_application()
+    main_controller = soundcurses.controllers.MainController(main_view)
+    signal_keypress.connect(main_controller.handle_input_keypress)
+    main_controller.start_application()
 
     # Compose model.
     # soundcloud_client = soundcloud.Client(
