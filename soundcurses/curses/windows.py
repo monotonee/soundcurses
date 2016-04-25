@@ -19,7 +19,6 @@ class CursesWindow:
         # Declare instance attributes.
         self._curses = curses
         self._window = window
-        self.input_exception = curses.error
         self.render_priority = 0
         self.virtual_state_requires_update = True
 
@@ -76,8 +75,8 @@ class HeaderWindow(CursesWindow):
 
         """
         self._window.bkgd(' ', self._curses.color_pair(1))
-        self._window.addstr(
-            1, 2, 'Current user: Monotonee', self._curses.A_BOLD)
+        # self._window.addstr(
+            # 1, 2, 'Current user: Monotonee', self._curses.A_BOLD)
 
 
 class NavWindow(CursesWindow):
@@ -107,3 +106,15 @@ class ContentWindow(CursesWindow):
 
         """
         self._window.border()
+
+class UsernameModalWindow(CursesWindow):
+    """ Manages the modal window into which users input a SoundCloud user name.
+
+    """
+
+    def _configure_window(self):
+        """ Override parent method.
+
+        """
+        self._window.border()
+

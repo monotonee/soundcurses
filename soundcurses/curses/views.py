@@ -13,7 +13,7 @@ class MainView:
     """
 
     def __init__(self, input_source, screen,
-        window_header, window_nav, window_content):
+        window_header, window_nav, window_content, window_modal_username):
         """ Constructor.
 
         input_source - Provides an interface for receiving input events from
@@ -28,6 +28,7 @@ class MainView:
         self._window_header = window_header
         self._window_nav = window_nav
         self._window_content = window_content
+        self._window_modal_username = window_modal_username
 
     def start(self):
         """ Render virtual curses state to physical screen.

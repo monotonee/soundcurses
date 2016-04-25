@@ -26,6 +26,7 @@ def main(stdscr):
 
     curses_wrapper = soundcurses.curses.components.CursesWrapper(curses, locale)
 
+    # Compose curses window wrappers.
     window_stdscr = soundcurses.curses.windows.StdscrWindow(curses_wrapper, stdscr)
     window_header = soundcurses.curses.windows.HeaderWindow(
         curses_wrapper,
@@ -37,7 +38,14 @@ def main(stdscr):
         curses_wrapper,
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
-            curses_wrapper.COLS, 6, 0))
+            curses_wrapper.COLS,
+            6, 0))
+    window_modal_username = soundcurses.curses.windows.UsernameModalWindow(
+        curses_wrapper,
+        curses_wrapper.newwin(
+            curses_wrapper.LINES - int(curses_wrapper.LINES * 0.3),
+            curses_wrapper.COLS - int(curses_wrapper.COLS * 0.2),
+            4, 4))
 
     # Compose screen.
     curses_screen = soundcurses.curses.components.CursesScreen(
@@ -45,7 +53,8 @@ def main(stdscr):
         window_stdscr,
         window_header,
         window_nav,
-        window_content)
+        window_content,
+        window_modal_username)
 
     # Compose input source.
     signal_keypress = signalslot.Signal(args=['code_point'])
@@ -59,7 +68,8 @@ def main(stdscr):
         curses_screen,
         window_header,
         window_nav,
-        window_content)
+        window_content,
+        window_modal_username)
 
     # Compose controllers.
     nav_controller = soundcurses.controllers.NavRegionController(main_view)
