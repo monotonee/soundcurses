@@ -119,6 +119,15 @@ class UsernameModalWindow(CursesWindow):
         """
         self._window.border()
 
+    def prompt_username(self):
+        """ Prompts user for a username and returns the entered string.
+
+        """
+        self._curses.echo()
+        input_string = self._window.getstr(0, 0)
+        self._curses.noecho()
+        return input_string
+
 
 class ModalWindowFactory:
     """ Creates and returns curses windows that are designed to act as modals.

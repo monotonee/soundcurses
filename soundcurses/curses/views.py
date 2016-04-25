@@ -38,10 +38,14 @@ class MainView:
         # Calculate screen percentages for modal dimensions.
         modal_dim_lines = round(self._screen.lines * 0.4)
         modal_dim_cols = round(self._screen.cols * 0.6)
+
+        # Create and configure window.
         username_modal = self._modal_window_factory.create_username_modal(
             modal_dim_lines, modal_dim_cols)
+
         self._screen.schedule_window_update(username_modal)
         self._screen.render()
+        test_input = username_modal.prompt_username()
 
     def start(self):
         """ Render virtual curses state to physical screen.

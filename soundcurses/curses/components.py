@@ -7,7 +7,9 @@ from collections import deque
 
 class CursesScreen:
     """ Makes sure that curses windows' states are written to virtual screen
-    in the correct order. Manages rendering of virtual state to screen.
+    in the correct order. Manages rendering of virtual state to screen and
+    abstracts some basic functions of both the curses object and the stdscr
+    object.
 
     _window_update_queue - A queue of window objects in order by refresh
         priority. Deque used due to possibility of adding element to front
@@ -17,6 +19,7 @@ class CursesScreen:
 
     def __init__(self, curses, window_stdscr, *args):
         self._curses = curses
+        # self._curses_echo_active = False
         self._windows = [window for window in args]
         self._window_stdscr = window_stdscr
         self._window_update_queue = deque()
@@ -35,6 +38,18 @@ class CursesScreen:
             for window in self._window_update_queue:
                 window.update_virtual_state()
             self._window_update_queue.clear()
+
+    # @property
+    # def echo(self):
+        # return self._curses_echo_active
+
+    # @echo.setter
+    # def echo(self, activate_echo = True):
+        # if activate_echo:
+            # self._curses.echo()
+        # else:
+            # self._curses.noecho()
+        # self._curses_echo_active = activate_echo
 
     @property
     def cols(self):
