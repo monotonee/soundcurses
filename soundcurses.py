@@ -56,18 +56,15 @@ def main(stdscr):
     # Compose views.
     main_view = soundcurses.curses.views.MainView(
         input_source,
-        curses_screen)
-    header_region_view = soundcurses.curses.views.HeaderRegionView(
-        window_header)
-    nav_region_view = soundcurses.curses.views.NavRegionView(window_nav)
-    content_region_view = soundcurses.curses.views.ContentRegionView(
+        curses_screen,
+        window_header,
+        window_nav,
         window_content)
 
     # Compose controllers.
-    nav_controller = soundcurses.controllers.NavRegionController(
-        nav_region_view)
+    nav_controller = soundcurses.controllers.NavRegionController(main_view)
     content_controller = soundcurses.controllers.ContentRegionController(
-        content_region_view)
+        main_view)
     main_controller = soundcurses.controllers.MainController(
         main_view,
         nav_controller,

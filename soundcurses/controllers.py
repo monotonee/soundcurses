@@ -45,8 +45,8 @@ class RegionController(metaclass=abc.ABCMeta):
 
     """
 
-    def __init__(self, region_view):
-        self._region_view = region_view
+    def __init__(self, view):
+        self._view = view
 
     @abc.abstractmethod
     def handle_input_keypress(self, code_point):
