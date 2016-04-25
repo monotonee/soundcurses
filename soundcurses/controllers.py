@@ -3,6 +3,7 @@
 """
 
 import abc
+import time
 
 class MainController:
     """ Top-evel interface for application controller actions.
@@ -14,14 +15,14 @@ class MainController:
 
     """
 
-    def __init__(self, main_view, controller_nav, controller_content):
+    def __init__(self, view, controller_nav, controller_content):
         """ Constructor.
 
         """
 
         self._controller_nav = controller_nav
         self._controller_content = controller_content
-        self._main_view = main_view
+        self._view = view
         self._state_region_context = self._controller_nav
 
     def handle_input_keypress(self, code_point, **kwargs):
@@ -31,12 +32,14 @@ class MainController:
 
         """
         if code_point == ord('q'):
-            self._main_view.stop_input_polling()
+            self._view.stop_input_polling()
 
     def start_application(self):
-        self._main_view.start()
-        self._main_view.start_input_polling()
-        self._main_view.stop()
+        self._view.start()
+        self._view.prompt_username()
+        time.sleep(1)
+        # self._view.start_input_polling()
+        self._view.stop()
 
 
 class RegionController(metaclass=abc.ABCMeta):

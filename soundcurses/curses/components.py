@@ -36,12 +36,20 @@ class CursesScreen:
                 window.update_virtual_state()
             self._window_update_queue.clear()
 
+    @property
+    def cols(self):
+        return self._curses.COLS
+
     def destroy(self):
         """ Relinquish control of the screen. Also returns window settings
         not set by curses.wrapper() to original values.
 
         """
         self._curses.destroy()
+
+    @property
+    def lines(self):
+        return self._curses.LINES
 
     def render(self):
         self._execute_update_queue()

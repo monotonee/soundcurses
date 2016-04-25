@@ -107,6 +107,7 @@ class ContentWindow(CursesWindow):
         """
         self._window.border()
 
+
 class UsernameModalWindow(CursesWindow):
     """ Manages the modal window into which users input a SoundCloud user name.
 
@@ -117,4 +118,41 @@ class UsernameModalWindow(CursesWindow):
 
         """
         self._window.border()
+
+
+class ModalWindowFactory:
+    """ Creates and returns curses windows that are designed to act as modals.
+
+    """
+
+    POSITION_CENTER = 0
+
+    def __init__(self, curses):
+        """ Note that a curses stdscr object must have already been created in
+        order for the terminal dimensions (such as curses.COLS) to be available.
+        This class requires the values stored in curses.LINES and curses.COLS.
+
+        """
+        self._curses = curses
+
+    def create_username_modal(self, lines, cols, position = None):
+        """ Instantiate and return a new curses window designed to act as a
+        modal window for the input of SoundCloud usernames.
+
+        """
+        # Validate arguments.
+        if not position:
+            position = self.POSITION_CENTER
+        if lines > self._curses.LINES or cols > self._curses.COLS:
+            raise Exception('Modal window dimensions must not exceed those ' +
+                'of terminal.')
+
+        # Determine window coordinates.
+        coord_y = round((self._curses.LINES - lines) / 2)
+        coord_x = round((self._curses.COLS - cols) / 2)
+
+        # CReate new window.
+        return UsernameModalWindow(
+            self._curses,
+            self._curses.newwin(lines, cols, coord_y, coord_x))
 

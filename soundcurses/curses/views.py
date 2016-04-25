@@ -13,7 +13,7 @@ class MainView:
     """
 
     def __init__(self, input_source, screen,
-        window_header, window_nav, window_content, window_modal_username):
+        window_header, window_nav, window_content, modal_window_factory):
         """ Constructor.
 
         input_source - Provides an interface for receiving input events from
@@ -24,11 +24,24 @@ class MainView:
         """
         # Declare instance attributes.
         self._input_source = input_source
+        self._modal_window_factory = modal_window_factory
         self._screen = screen
         self._window_header = window_header
         self._window_nav = window_nav
         self._window_content = window_content
-        self._window_modal_username = window_modal_username
+
+    def prompt_username(self):
+        """ Display a modal input window into which the user will enter a
+        valid SoundCloud username.
+
+        """
+        # Calculate screen percentages for modal dimensions.
+        modal_dim_lines = round(self._screen.lines * 0.4)
+        modal_dim_cols = round(self._screen.cols * 0.6)
+        username_modal = self._modal_window_factory.create_username_modal(
+            modal_dim_lines, modal_dim_cols)
+        self._screen.schedule_window_update(username_modal)
+        self._screen.render()
 
     def start(self):
         """ Render virtual curses state to physical screen.
