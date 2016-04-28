@@ -120,12 +120,38 @@ class ModalWindow(CursesWindow):
         self._window.border()
 
     def prompt(self, prompt_string):
-        """ Prompts user for a username and returns the entered string.
+        """ Prompts user for input and returns the entered string. Currently,
+        the prompt string is only a single line and is rendered in the center of
+        the window with the user input echoed below it.
 
         """
+        window_dimensions = self._window.getmaxyx()
+        prompt_string_length = len(prompt_string)
+
+        # Valiate arguments.
+        # If prompt string character count exceeds max window column count minus
+        # two (accounting for border), raise exception. This effectively
+        # enforces a single-line prompt.
+        if prompt_string_length > window_dimensions[1] - 2:
+            raise ValueError('Prompt string too long for window.')
+
+        # Draw prompt string. In order for both prompt string and input line to
+        # appear centered in modal, both lines must be shifted upward on y axis
+        # by two lines.
+        prompt_string_coord_y = round((window_dimensions[0] - 2) / 2)
+        prompt_string_coord_x = round(
+            (window_dimensions[1] - prompt_string_length) / 2)
+        self._window.addstr(
+            prompt_string_coord_y,
+            prompt_string_coord_x,
+            prompt_string)
+
+        # Start input polling.
         self._curses.echo()
-        input_string = self._window.getstr(0, 0)
+        input_string = self._window.getstr(
+            prompt_string_coord_y + 1, prompt_string_coord_x)
         self._curses.noecho()
+
         return input_string
 
 
@@ -157,7 +183,7 @@ class ModalWindowFactory:
             coord_y = round((self._curses.LINES - lines) / 2)
             coord_x = round((self._curses.COLS - cols) / 2)
         else:
-            raise Exception('Unknown positional constant.')
+            raise ValueError('Unknown positional constant.')
 
         return (coord_y, coord_x)
 
@@ -168,7 +194,7 @@ class ModalWindowFactory:
         """
         # Validate arguments.
         if lines > self._curses.LINES or cols > self._curses.COLS:
-            raise Exception('Modal window dimensions must not exceed those ' +
+            raise ValueError('Modal window dimensions must not exceed those ' +
                 'of terminal.')
         if not position:
             position = self.POSITION_CENTER
