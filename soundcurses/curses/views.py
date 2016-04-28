@@ -40,12 +40,12 @@ class MainView:
         modal_dim_cols = round(self._screen.cols * 0.6)
 
         # Create and configure window.
-        username_modal = self._modal_window_factory.create_username_modal(
+        username_modal = self._modal_window_factory.create_modal(
             modal_dim_lines, modal_dim_cols)
 
         self._screen.schedule_window_update(username_modal)
         self._screen.render()
-        test_input = username_modal.prompt_username()
+        test_input = username_modal.prompt('enter username: ')
 
     def start(self):
         """ Render virtual curses state to physical screen.

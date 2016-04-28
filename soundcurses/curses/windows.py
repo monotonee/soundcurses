@@ -108,7 +108,7 @@ class ContentWindow(CursesWindow):
         self._window.border()
 
 
-class UsernameModalWindow(CursesWindow):
+class ModalWindow(CursesWindow):
     """ Manages the modal window into which users input a SoundCloud user name.
 
     """
@@ -119,7 +119,7 @@ class UsernameModalWindow(CursesWindow):
         """
         self._window.border()
 
-    def prompt_username(self):
+    def prompt(self, prompt_string):
         """ Prompts user for a username and returns the entered string.
 
         """
@@ -144,24 +144,40 @@ class ModalWindowFactory:
         """
         self._curses = curses
 
-    def create_username_modal(self, lines, cols, position = None):
+    def _get_window_coords(self, lines, cols, position):
+        """ Given a desired position class constant and dimensions of a curses
+        window, returns the coordinates at which the top left corner of the
+        window should be placed. Returns a tuple of coords (y, x).
+
+        Note that the x and y coord order is switched. Maintains consistency
+        with curses library.
+
+        """
+        if position == self.POSITION_CENTER:
+            coord_y = round((self._curses.LINES - lines) / 2)
+            coord_x = round((self._curses.COLS - cols) / 2)
+        else:
+            raise Exception('Unknown positional constant.')
+
+        return (coord_y, coord_x)
+
+    def create_modal(self, lines, cols, position = None):
         """ Instantiate and return a new curses window designed to act as a
-        modal window for the input of SoundCloud usernames.
+        modal window.
 
         """
         # Validate arguments.
-        if not position:
-            position = self.POSITION_CENTER
         if lines > self._curses.LINES or cols > self._curses.COLS:
             raise Exception('Modal window dimensions must not exceed those ' +
                 'of terminal.')
+        if not position:
+            position = self.POSITION_CENTER
 
         # Determine window coordinates.
-        coord_y = round((self._curses.LINES - lines) / 2)
-        coord_x = round((self._curses.COLS - cols) / 2)
+        coord_tuple = self._get_window_coords(lines, cols, position)
 
-        # CReate new window.
-        return UsernameModalWindow(
+        # Create new window.
+        return ModalWindow(
             self._curses,
-            self._curses.newwin(lines, cols, coord_y, coord_x))
+            self._curses.newwin(lines, cols, *coord_tuple))
 
