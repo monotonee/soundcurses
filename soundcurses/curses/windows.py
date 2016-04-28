@@ -13,6 +13,7 @@ class CursesWindow:
         """ Constructor.
 
         curses - The curses library interface.
+        render_priority - Ranges from 0 (lowest) to integer n (higher).
         window - A raw curses window object.
 
         """
@@ -48,6 +49,10 @@ class StdscrWindow(CursesWindow):
     rendered. In the curses library, stdscr often performs some special duties
     as well and this specialized subclass exposes the necessary interfaces.
 
+    Note the elevated render priority. stdscr must be rendered first since it
+    lies behind all subwindows. If rendered after subwindows, stdscr will
+    overlap them, resulting in a blank screen.
+
     """
 
     def _configure_window(self):
@@ -55,7 +60,7 @@ class StdscrWindow(CursesWindow):
 
         """
         self._window.nodelay(True)
-        self.render_priority = 1
+        self.render_priority = 2
 
     def getch(self):
         """ Wrapper for internal curses window instance method.
@@ -108,43 +113,66 @@ class ContentWindow(CursesWindow):
         self._window.border()
 
 
-class ModalWindow(CursesWindow):
-    """ Manages the modal window into which users input a SoundCloud user name.
+class ModalPromptWindow(CursesWindow):
+    """ Manages the display and operation of a modal window with rendering
+    priority that will place it on top of existing windows.
+
+    Instances designed to be created and destroyed along with each modal window.
+
+    Note that window.addstr() and/or window.getstr() contains implicit refresh.
 
     """
+
+    def __init__(self, curses, window, prompt_string):
+        """ Override parent method. Added prompt string parameter.
+
+        """
+        super().__init__(curses, window)
+
+        if not self._validate_prompt_string(prompt_string):
+            raise ValueError('Prompt string too long for modal window.')
+
+        self._prompt_string = prompt_string
 
     def _configure_window(self):
         """ Override parent method.
 
         """
         self._window.border()
+        self.render_priority = 1
 
-    def prompt(self, prompt_string):
+    def _validate_prompt_string(self, prompt_string):
+        """ Called in the constructor.
+
+        When rendered to the window, the prompt string must fit on a single
+        line. The window may have a border so prompt string must have at least
+        two fewer characters than the window has columns.
+
+        Returns Boolean true if valid, false otherwise.
+
+        """
+        prompt_string_is_valid = False
+        if len(prompt_string) < self._window.getmaxyx()[1] - 2:
+            prompt_string_is_valid = True
+
+        return prompt_string_is_valid
+
+    def prompt(self):
         """ Prompts user for input and returns the entered string. Currently,
         the prompt string is only a single line and is rendered in the center of
         the window with the user input echoed below it.
 
         """
-        window_dimensions = self._window.getmaxyx()
-        prompt_string_length = len(prompt_string)
-
-        # Valiate arguments.
-        # If prompt string character count exceeds max window column count minus
-        # two (accounting for border), raise exception. This effectively
-        # enforces a single-line prompt.
-        if prompt_string_length > window_dimensions[1] - 2:
-            raise ValueError('Prompt string too long for window.')
-
         # Draw prompt string. In order for both prompt string and input line to
         # appear centered in modal, both lines must be shifted upward on y axis
         # by two lines.
+        window_dimensions = self._window.getmaxyx()
+        prompt_string_length = len(self._prompt_string)
         prompt_string_coord_y = round((window_dimensions[0] - 2) / 2)
         prompt_string_coord_x = round(
             (window_dimensions[1] - prompt_string_length) / 2)
         self._window.addstr(
-            prompt_string_coord_y,
-            prompt_string_coord_x,
-            prompt_string)
+            prompt_string_coord_y, prompt_string_coord_x, self._prompt_string)
 
         # Start input polling.
         self._curses.echo()
@@ -176,7 +204,9 @@ class ModalWindowFactory:
         window should be placed. Returns a tuple of coords (y, x).
 
         Note that the x and y coord order is switched. Maintains consistency
-        with curses library.
+        with curses library's standard (y, x) tuple.
+
+        Returns tuple of integer coordinates (y, x).
 
         """
         if position == self.POSITION_CENTER:
@@ -187,23 +217,24 @@ class ModalWindowFactory:
 
         return (coord_y, coord_x)
 
-    def create_modal(self, lines, cols, position = None):
+    def create_prompt_modal(self, lines, cols, prompt_string, position = None):
         """ Instantiate and return a new curses window designed to act as a
         modal window.
 
         """
         # Validate arguments.
         if lines > self._curses.LINES or cols > self._curses.COLS:
-            raise ValueError('Modal window dimensions must not exceed those ' +
-                'of terminal.')
+            raise ValueError('Modal window dimensions must not exceed ' +
+                'available terminal dimensions.')
         if not position:
             position = self.POSITION_CENTER
 
-        # Determine window coordinates.
+        # Determine window top left vertex coordinates.
         coord_tuple = self._get_window_coords(lines, cols, position)
 
         # Create new window.
-        return ModalWindow(
+        return ModalPromptWindow(
             self._curses,
-            self._curses.newwin(lines, cols, *coord_tuple))
+            self._curses.newwin(lines, cols, *coord_tuple),
+            prompt_string)
 
