@@ -25,15 +25,15 @@ class MainController:
         self._view = view
         self._state_region_context = self._controller_nav
 
-    def handle_input_keypress(self, code_point, **kwargs):
+    def handle_input_keypress(self, key_string, **kwargs):
         """ Slot that handles keypress events from the view.
 
-        code_point - The integer code point representing the keyboard key.
+        key_string - A string representing the key that was pressed.
 
         """
-        if code_point == ord('q'):
+        if key_string == 'q':
             self._view.stop_input_polling()
-        elif code_point == ord('u'):
+        elif key_string == 'u':
             self._view.prompt_username()
 
     def start_application(self):

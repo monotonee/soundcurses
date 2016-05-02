@@ -72,11 +72,16 @@ class StdscrWindow(CursesWindow):
         """
         self._window.nodelay(True)
 
-    def getch(self):
-        """ Wrapper for internal curses window instance method.
+    def get_character(self):
+        """ Attempt to sample keypress from user.
 
         """
-        return self._window.getch()
+        try:
+            key_pressed = self._window.getkey()
+        except self._curses.error:
+            key_pressed = None
+
+        return key_pressed
 
 
 class HeaderWindow(CursesWindow):
