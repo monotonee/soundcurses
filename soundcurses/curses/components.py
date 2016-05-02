@@ -3,7 +3,7 @@ to compose other classes with more coarsely-defined interfaces.
 
 """
 
-from collections import deque
+import itertools
 
 class CursesScreen:
     """ Makes sure that curses windows' states are written to virtual screen
@@ -11,45 +11,30 @@ class CursesScreen:
     abstracts some basic functions of both the curses object and the stdscr
     object.
 
-    _window_update_queue - A queue of window objects in order by refresh
-        priority. Deque used due to possibility of adding element to front
-        of queue, an operation for which a simple list is not optimized.
+    _render_queue - A queue of window objects indexed by render layer.
+    _windows - Begins as a straight conversion from *args tuple into a list.
+        Used to maintain an unordered list of references to all curses windows.
 
     """
 
-    def __init__(self, curses, window_stdscr, *args):
+    def __init__(self, curses, render_queue, *args):
         self._curses = curses
-        # self._curses_echo_active = False
-        self._windows = [window for window in args]
-        self._window_stdscr = window_stdscr
-        self._window_update_queue = deque()
+        self._render_queue = render_queue
+        self._windows = [*args]
 
-        # New windows require initial update. Attempt to add ALL to update queue
+        # New windows require initial update. Attempt to add all to render queue
         # in case initial virtual state update has not been completed.
-        # Note list expansion in temporary list below.
-        for window in [*self._windows, self._window_stdscr]:
+        for window in self._windows:
             self.schedule_window_update(window)
 
     def _execute_update_queue(self):
-        """ Iterate window virtual state update queue and execute updates.
+        """ Iterate render queue and push window states to curses virtual state.
 
         """
-        if self._window_update_queue:
-            for window in self._window_update_queue:
+        if self._render_queue:
+            for window in self._render_queue:
                 window.update_virtual_state()
-            self._window_update_queue.clear()
-
-    # @property
-    # def echo(self):
-        # return self._curses_echo_active
-
-    # @echo.setter
-    # def echo(self, activate_echo = True):
-        # if activate_echo:
-            # self._curses.echo()
-        # else:
-            # self._curses.noecho()
-        # self._curses_echo_active = activate_echo
+            self._render_queue.clear()
 
     @property
     def cols(self):
@@ -62,26 +47,116 @@ class CursesScreen:
         """
         self._curses.destroy()
 
+    def force_refresh_all(self):
+        """ Add all windows to update queue regardless of necessity and then
+        execute queue.
+
+        Useful for forcing re-renders after modal windows are no longer needed.
+
+        """
+        for window in self._windows:
+            window.touch()
+            self.schedule_window_update(window)
+        self.render()
+
     @property
     def lines(self):
         return self._curses.LINES
 
     def render(self):
+        """ Pushes window state to curses virtual screen and then renders
+        virtual screen state to physical screen.
+
+        """
         self._execute_update_queue()
         self._curses.doupdate()
 
     def schedule_window_update(self, window):
-        """ Push window objects into queue for virtual state update in order.
+        """ Push window objects into render queue.
 
-        The main "stdscr" window must always be scheduled for refresh first so
-        that subwindow refreshes will be rendered "on top" of the main window.
+        The queue object handles indexing and ordering by render layer.
 
         """
         if window.virtual_state_requires_update:
-            if window is self._window_stdscr:
-                self._window_update_queue.appendleft(window)
-            else:
-                self._window_update_queue.append(window)
+            self._render_queue.add(window)
+
+
+class WindowRenderQueue():
+    """ This class is designed to abstract the ordering of curses windows
+    pushed onto the queue for later rendering.
+
+    Each window object belongs to a predetermined rendering layer and this class
+    uses that to insert the window into the appropriate order on the queue while
+    accounting for collisions.
+
+    The conscious choice was made to use a list as the value for every render
+    layer "key" in the queue. While this does use more memory, it simplifies
+    code by avoiding constant iterable checks. For this scale, the increased
+    memory is deemed negligible.
+
+    """
+
+    def __init__(self):
+        """ Constructor.
+
+        """
+        self._queue = {}
+
+    def __iter__(self):
+        """ Implements the iterable interface method.
+
+        A key will only exist in the queue if it corresponds to a list value so
+        it is safe to begin iteration of the value without checks.
+
+        See: https://docs.python.org/3/reference/datamodel.html#object.__iter__
+
+        Caution: I'm not sure if the dictionary view produced by dict.values()
+        has consistent, deterministic order. In this queue, order is important
+        so this needs to be watched.
+
+        See: https://docs.python.org/3.1/library/stdtypes.html#dictionary-view-
+            objects
+
+        """
+        return self._flatten_queue()
+
+    def __len__(self):
+        """ Implements len() interface.
+
+        itertools.chain has no len() interface, thus it must be converted to an
+        iterable that does. I question the efficiency of calculating something
+        as simple as length this way. Consider implemting a loop and using an
+        accumulator.
+
+        See: https://docs.python.org/3/reference/datamodel.html#object.__len__
+
+        """
+        return len(list(self._flatten_queue()))
+
+    def _flatten_queue(self):
+        """ Returns windows in queue, contained in a one-dimensional, iterable
+        sequence.
+
+        """
+        return itertools.chain(*self._queue.values())
+
+    def add(self, window):
+        """ Add a window object to the queue.
+
+        Render layer collisions are handled by storing items in a bucket,
+        implemented with a simple list.
+
+        """
+        if window.render_layer in self._queue:
+            self._queue[window.render_layer].append(window)
+        else:
+            self._queue[window.render_layer] = [window]
+
+    def clear(self):
+        """ Empty the queue.
+
+        """
+        self._queue.clear()
 
 
 class CursesWrapper:
@@ -89,6 +164,7 @@ class CursesWrapper:
     at construction and passing calls through to underlying curses object.
 
     """
+
     def __init__(self, curses, locale):
         self._character_encoding = None
         self._curses = curses
@@ -151,6 +227,7 @@ class InputSource:
     """ Manages the polling for user input and the issuing of keypress signals.
 
     """
+
     def __init__(self, window, signal_keypress):
         self._window = window
         self._signal_keypress = signal_keypress

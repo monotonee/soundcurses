@@ -33,12 +33,13 @@ class MainController:
         """
         if code_point == ord('q'):
             self._view.stop_input_polling()
+        elif code_point == ord('u'):
+            self._view.prompt_username()
 
     def start_application(self):
         self._view.start()
-        self._view.prompt_username()
-        time.sleep(1)
-        # self._view.start_input_polling()
+        self._view.start_input_polling()
+        # self._view.prompt_username()
         self._view.stop()
 
 

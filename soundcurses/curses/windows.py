@@ -13,14 +13,17 @@ class CursesWindow:
         """ Constructor.
 
         curses - The curses library interface.
-        render_priority - Ranges from 0 (lowest) to integer n (higher).
+        render_layer - Ranges from 0 (lowest) to integer n (higher). Layers are
+            rendered from lowest to highest. Remains public so that render queue
+            can access value. Windows on the same render layer will be rendered
+            in arbitrary order.
         window - A raw curses window object.
 
         """
         # Declare instance attributes.
         self._curses = curses
         self._window = window
-        self.render_priority = 0
+        self.render_layer = 0
         self.virtual_state_requires_update = True
 
         # Gather information and establish initial instance state.
@@ -34,6 +37,13 @@ class CursesWindow:
 
         """
         pass
+
+    def touch(self):
+        """ Force curses to render window regardless of actual update to state.
+
+        """
+        self._window.touchwin()
+        self.virtual_state_requires_update = True
 
     def update_virtual_state(self):
         """ Writes window state to curses' virtual screen state. Note the lack
@@ -49,9 +59,10 @@ class StdscrWindow(CursesWindow):
     rendered. In the curses library, stdscr often performs some special duties
     as well and this specialized subclass exposes the necessary interfaces.
 
-    Note the elevated render priority. stdscr must be rendered first since it
-    lies behind all subwindows. If rendered after subwindows, stdscr will
-    overlap them, resulting in a blank screen.
+    Note the render layer. stdscr must be rendered first since it
+    lies behind all subwindows so render_layer value remains at the default 0.
+    If rendered after subwindows, stdscr will overlap them, resulting in a blank
+    screen since no content is rendered to stdscr.
 
     """
 
@@ -60,7 +71,6 @@ class StdscrWindow(CursesWindow):
 
         """
         self._window.nodelay(True)
-        self.render_priority = 2
 
     def getch(self):
         """ Wrapper for internal curses window instance method.
@@ -80,8 +90,7 @@ class HeaderWindow(CursesWindow):
 
         """
         self._window.bkgd(' ', self._curses.color_pair(1))
-        # self._window.addstr(
-            # 1, 2, 'Current user: Monotonee', self._curses.A_BOLD)
+        self.render_layer = 1
 
 
 class NavWindow(CursesWindow):
@@ -97,6 +106,7 @@ class NavWindow(CursesWindow):
 
         """
         self._window.border()
+        self.render_layer = 1
 
 
 class ContentWindow(CursesWindow):
@@ -111,11 +121,12 @@ class ContentWindow(CursesWindow):
 
         """
         self._window.border()
+        self.render_layer = 1
 
 
 class ModalPromptWindow(CursesWindow):
-    """ Manages the display and operation of a modal window with rendering
-    priority that will place it on top of existing windows.
+    """ Manages the display and operation of a modal window on a rendering layer
+    that will place it on top of existing windows.
 
     Instances designed to be created and destroyed along with each modal window.
 
@@ -128,7 +139,6 @@ class ModalPromptWindow(CursesWindow):
 
         """
         super().__init__(curses, window)
-
         if not self._validate_prompt_string(prompt_string):
             raise ValueError('Prompt string too long for modal window.')
 
@@ -139,7 +149,7 @@ class ModalPromptWindow(CursesWindow):
 
         """
         self._window.border()
-        self.render_priority = 1
+        self.render_layer = 2
 
     def _validate_prompt_string(self, prompt_string):
         """ Called in the constructor.
@@ -161,6 +171,8 @@ class ModalPromptWindow(CursesWindow):
         """ Prompts user for input and returns the entered string. Currently,
         the prompt string is only a single line and is rendered in the center of
         the window with the user input echoed below it.
+
+        Note that window.addstr() and/or window.getstr() call screen refreshes.
 
         """
         # Draw prompt string. In order for both prompt string and input line to

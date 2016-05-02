@@ -27,13 +27,12 @@ def main(stdscr):
     curses_wrapper = soundcurses.curses.components.CursesWrapper(curses, locale)
 
     # Compose curses window wrappers.
-    window_stdscr = soundcurses.curses.windows.StdscrWindow(curses_wrapper, stdscr)
+    window_stdscr = soundcurses.curses.windows.StdscrWindow(
+        curses_wrapper, stdscr)
     window_header = soundcurses.curses.windows.HeaderWindow(
-        curses_wrapper,
-        curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0))
+        curses_wrapper, curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0))
     window_nav = soundcurses.curses.windows.NavWindow(
-        curses_wrapper,
-        curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0))
+        curses_wrapper, curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0))
     window_content = soundcurses.curses.windows.ContentWindow(
         curses_wrapper,
         curses_wrapper.newwin(
@@ -44,8 +43,10 @@ def main(stdscr):
         curses_wrapper)
 
     # Compose screen.
+    render_queue = soundcurses.curses.components.WindowRenderQueue()
     curses_screen = soundcurses.curses.components.CursesScreen(
         curses_wrapper,
+        render_queue,
         window_stdscr,
         window_header,
         window_nav,
@@ -57,7 +58,7 @@ def main(stdscr):
         window_stdscr,
         signal_keypress)
 
-    # Compose views.
+    # Compose view(s).
     main_view = soundcurses.curses.views.MainView(
         input_source,
         curses_screen,

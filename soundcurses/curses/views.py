@@ -4,8 +4,6 @@ interfaces to controller classes for the manipulation of the curses TUI.
 
 """
 
-from collections import deque
-
 class MainView:
     """ Highest-level view designed to control broad functions often associated
     with curses' stdscr. Manipulated by the main controller class.
@@ -46,6 +44,10 @@ class MainView:
         # Render new window. Note that the curses window methods called in the
         # modal's prompt method have implicit curses refresh calls.
         test_input = username_modal.prompt()
+
+        self._screen.force_refresh_all()
+
+        return test_input
 
     def start(self):
         """ Render virtual curses state to physical screen.
