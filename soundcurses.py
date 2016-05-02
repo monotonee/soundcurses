@@ -13,9 +13,7 @@ import soundcloud
 # Local imports.
 import soundcurses.controllers
 import soundcurses.model
-import soundcurses.curses.components
-import soundcurses.curses.views
-import soundcurses.curses.windows
+from soundcurses.curses import (components, screen, views, windows)
 
 def main(stdscr):
     """ Compose curses windows and pads.
@@ -43,8 +41,8 @@ def main(stdscr):
         curses_wrapper)
 
     # Compose screen.
-    render_queue = soundcurses.curses.components.WindowRenderQueue()
-    curses_screen = soundcurses.curses.components.CursesScreen(
+    render_queue = soundcurses.curses.screen.WindowRenderQueue()
+    curses_screen = soundcurses.curses.screen.CursesScreen(
         curses_wrapper,
         render_queue,
         window_stdscr,
