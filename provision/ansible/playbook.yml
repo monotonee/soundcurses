@@ -16,10 +16,18 @@
     default_user: vagrant
 
   tasks:
+    # Sync package databases wuthout upgrading system. This ensures that the
+    # task to install Python requests the correct versions from the mirrors.
+  - name: Sync package databases
+    raw: pacman -Syy --noprogressbar
+
     # Arch base group does not include Python, which Ansible needs.
   - name: Install Python 2 and Python 3 interpreters
     raw: pacman -S python2 python --noconfirm --noprogressbar
 
+    # It is necessary to sync databases and upgrade first in order to ensure
+    # that outdated versions of the specific packages in the following tasks are
+    # not requested from mirrors.
   - name: Perform full system upgrade
     pacman:
       update_cache: true
@@ -57,10 +65,18 @@
   # wait for it to return
   - block:
 
+    # Note that this task was changed from using the "command" module to "raw".
+    # As of version 2.0.2.0, Ansible's command module implementation is:
+    # 1) Connect SSH, 2)SFTP a temp file from host to target, 3) SSH back in
+    # to execute temp file through Python and subsequently delete the file.
+    # Obviously, step 3 was unable to be executed when the target machine
+    # reboots and thus Ansible threw an "unreachable" status error that could
+    # not be caught by ignore_errors.
+    # https://github.com/ansible/ansible/issues/10472
     # https://docs.ansible.com/ansible/playbooks_async.html
     - name: Reboot host block
       async: 0
-      command: systemctl reboot
+      raw: systemctl reboot
       ignore_errors: true
       poll: 0
 
@@ -73,9 +89,10 @@
     - name: Wait for host reboot block
       become: false
       connection: local
+      ignore_errors: true
       wait_for:
         connect_timeout: 10
-        delay: 4
+        delay: 20
         host: "{{ ansible_ssh_host | default(inventory_hostname) }}"
         port: "{{ ansible_ssh_port }}"
         search_regex: OpenSSH
