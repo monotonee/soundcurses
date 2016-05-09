@@ -94,7 +94,7 @@ class HeaderWindow(CursesWindow):
         """ Override parent method.
 
         """
-        self._window.bkgd(' ', self._curses.color_pair(1))
+        # self._window.bkgd(' ', self._curses.color_pair(1))
         self.render_layer = 1
 
 
@@ -125,7 +125,9 @@ class ContentWindow(CursesWindow):
         """ Override parent method.
 
         """
-        self._window.border()
+        self._window.border(
+            ' ', ' ', 0, ' ',
+            self._curses.ACS_HLINE, self._curses.ACS_HLINE, ' ', ' ')
         self.render_layer = 1
 
 
@@ -177,7 +179,14 @@ class ModalPromptWindow(CursesWindow):
         the prompt string is only a single line and is rendered in the center of
         the window with the user input echoed below it.
 
-        Note that window.addstr() and/or window.getstr() call screen refreshes.
+        Note that window.addstr() and/or window.getstr() implicitly call screen
+        refreshes.
+
+        Note that this converts the bytes object returned by window.getstr()
+        into a string using the encoding contained in the curses object. In this
+        instance, I favor fully abstracting curses' idiosyncrasies rather than
+        forcing the higher level abstractions to handle all the various forms
+        of return values.
 
         """
         # Draw prompt string. In order for both prompt string and input line to
@@ -197,7 +206,7 @@ class ModalPromptWindow(CursesWindow):
             prompt_string_coord_y + 1, prompt_string_coord_x)
         self._curses.noecho()
 
-        return input_string
+        return input_string.decode(self._curses.character_encoding)
 
 
 class ModalWindowFactory:

@@ -10,9 +10,9 @@ class CursesWrapper:
     """
 
     def __init__(self, curses, locale):
-        self._character_encoding = None
         self._curses = curses
         self._locale = locale
+        self.character_encoding = None
 
         self._configure()
         self._set_character_encoding()
@@ -43,8 +43,8 @@ class CursesWrapper:
         self._curses.curs_set(0)
 
         # Define color pairs.
-        self._curses.init_pair(
-            1, self._curses.COLOR_WHITE, self._curses.COLOR_BLUE)
+        # self._curses.init_pair(
+            # 1, self._curses.COLOR_WHITE, self._curses.COLOR_BLUE)
 
     def _set_character_encoding(self):
         """ Determine environment locale and get encoding.
@@ -54,7 +54,7 @@ class CursesWrapper:
         """
         # Set current locale to user default as specified in LANG env variable.
         self._locale.setlocale(self._locale.LC_ALL, '')
-        self._character_encoding = self._locale.getpreferredencoding()
+        self.character_encoding = self._locale.getpreferredencoding()
 
     def destroy(self):
         """ Relinquish control of the screen. Also returns window settings

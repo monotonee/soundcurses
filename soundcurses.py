@@ -12,7 +12,7 @@ import soundcloud
 
 # Local imports.
 import soundcurses.controllers
-import soundcurses.model
+import soundcurses.models
 from soundcurses.curses import (components, screen, views, windows)
 
 def main(stdscr):
@@ -65,25 +65,24 @@ def main(stdscr):
         window_content,
         modal_window_factory)
 
+    # Compose model.
+    soundcloud_client = soundcloud.Client(
+        client_id='e9cd65934510bf631372af005c2f37b5',
+        use_ssl=True)
+    main_model = soundcurses.models.MainModel(soundcloud_client)
+
     # Compose controllers.
     nav_controller = soundcurses.controllers.NavRegionController(main_view)
     content_controller = soundcurses.controllers.ContentRegionController(
         main_view)
     main_controller = soundcurses.controllers.MainController(
         main_view,
+        main_model,
         nav_controller,
         content_controller)
     signal_keypress.connect(main_controller.handle_input_keypress)
     main_controller.start_application()
 
-    # Compose model.
-    # soundcloud_client = soundcloud.Client(
-        # client_id='e9cd65934510bf631372af005c2f37b5',
-        # use_ssl=True)
-    # print(
-        # soundcloud_client.get(
-            # '/resolve', url='https://soundcloud.com/monotonee'))
 
-    # model = soundcurses.model.CursesModel(soundcloud_client)
 
 curses.wrapper(main)
