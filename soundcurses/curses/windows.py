@@ -7,7 +7,18 @@ class CursesWindow:
     """ Defines a base class that encapsulates a layout region, implemented
     using a curses window or panel.
 
+    RENDER_LAYER_* - Standardize render layer levels for readability.
+    RENDER_LAYER_HIDDEN - Windows rendered on this layer will be rendered
+        behind stdscr and will therefore be invisible on physical screen.
+        New windows default to this render layer.
+    RENDER_LAYER_BASE - The base layer on which the stdscr window will
+        (should) be rendered. Since stdscr is not used for rendering any UI
+        components, will remain blank.
+
     """
+
+    RENDER_LAYER_HIDDEN = 0
+    RENDER_LAYER_BASE = 1
 
     def __init__(self, curses, window):
         """ Constructor.
@@ -20,10 +31,11 @@ class CursesWindow:
         window - A raw curses window object.
 
         """
+
         # Declare instance attributes.
         self._curses = curses
         self._window = window
-        self.render_layer = 0
+        self.render_layer = self.RENDER_LAYER_HIDDEN
         self.virtual_state_requires_update = True
 
         # Gather information and establish initial instance state.
@@ -71,6 +83,7 @@ class StdscrWindow(CursesWindow):
 
         """
         self._window.nodelay(True)
+        self.render_layer = self.RENDER_LAYER_BASE
 
     def get_character(self):
         """ Attempt to sample keypress from user.
@@ -93,9 +106,11 @@ class HeaderWindow(CursesWindow):
     def _configure_window(self):
         """ Override parent method.
 
+        Note that this window is rendered one layer above stdscr.
+
         """
         # self._window.bkgd(' ', self._curses.color_pair(1))
-        self.render_layer = 1
+        self.render_layer = self.RENDER_LAYER_BASE + 1
 
 
 class NavWindow(CursesWindow):
@@ -111,7 +126,7 @@ class NavWindow(CursesWindow):
 
         """
         self._window.border()
-        self.render_layer = 1
+        self.render_layer = self.RENDER_LAYER_BASE + 1
 
 
 class ContentWindow(CursesWindow):
@@ -128,7 +143,7 @@ class ContentWindow(CursesWindow):
         self._window.border(
             ' ', ' ', 0, ' ',
             self._curses.ACS_HLINE, self._curses.ACS_HLINE, ' ', ' ')
-        self.render_layer = 1
+        self.render_layer = self.RENDER_LAYER_BASE + 1
 
 
 class ModalPromptWindow(CursesWindow):
@@ -154,9 +169,11 @@ class ModalPromptWindow(CursesWindow):
     def _configure_window(self):
         """ Override parent method.
 
+        Note that this window is rendered above static UI windows.
+
         """
         self._window.border()
-        self.render_layer = 2
+        self.render_layer = self.RENDER_LAYER_BASE + 2
 
     def _validate_prompt_string(self, prompt_string):
         """ Called in the constructor.
