@@ -173,7 +173,7 @@ class ModalPromptWindow(CursesWindow):
 
         """
         self._window.border()
-        self.render_layer = self.RENDER_LAYER_BASE + 2
+        self.render_layer = self.RENDER_LAYER_HIDDEN
 
     def _validate_prompt_string(self, prompt_string):
         """ Called in the constructor.
