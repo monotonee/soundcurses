@@ -11,7 +11,7 @@ class MainView:
     """
 
     def __init__(self, input_source, screen,
-        window_header, window_nav, window_content, modal_window_factory):
+        window_header, window_nav, window_content, window_modal):
         """ Constructor.
 
         input_source - Provides an interface for receiving input events from
@@ -22,32 +22,30 @@ class MainView:
         """
         # Declare instance attributes.
         self._input_source = input_source
-        self._modal_window_factory = modal_window_factory
         self._screen = screen
-        self._window_header = window_header
-        self._window_nav = window_nav
         self._window_content = window_content
+        self._window_header = window_header
+        self._window_modal = window_modal
+        self._window_nav = window_nav
+
 
     def prompt_username(self):
         """ Display a modal input window into which the user will enter a
         valid SoundCloud username.
 
         """
-        # Calculate screen percentages for modal dimensions.
-        modal_dim_lines = round(self._screen.lines * 0.2)
-        modal_dim_cols = round(self._screen.cols * 0.4)
-
-        # Create and configure window.
-        username_modal = self._modal_window_factory.create_prompt_modal(
-            modal_dim_lines, modal_dim_cols, 'enter username: ')
-
         # Render new window. Note that the curses window methods called in the
         # modal's prompt method have implicit curses refresh calls.
-        test_input = username_modal.prompt()
+        # self._screen.force_render_all()
+        self._window_modal.show()
+        self._screen.force_render_all()
+        import time
+        time.sleep(1)
+        test_input = self._window_modal.prompt('enter username: ')
+        # self._window_modal.hide()
+        # self._screen.force_render_all()
 
-        self._screen.force_refresh_all()
-
-        return test_input
+        # return test_input
 
     def start(self):
         """ Render virtual curses state to physical screen.

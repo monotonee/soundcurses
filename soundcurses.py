@@ -37,8 +37,17 @@ def main(stdscr):
             curses_wrapper.LINES - 6,
             curses_wrapper.COLS,
             6, 0))
-    modal_window_factory = soundcurses.curses.windows.ModalWindowFactory(
-        curses_wrapper)
+    # Create reusable modal window 40% of screen size, centered in screen.
+    # Is hidden by default.
+    window_modal_dim_y = round(curses_wrapper.LINES * 0.4)
+    window_modal_dim_x = round(curses_wrapper.COLS * 0.4)
+    window_modal = soundcurses.curses.windows.ModalWindow(
+        curses_wrapper,
+        curses_wrapper.newwin(
+            window_modal_dim_y,
+            window_modal_dim_x,
+            round((curses_wrapper.LINES - window_modal_dim_y) / 2),
+            round((curses_wrapper.COLS - window_modal_dim_x) / 2)))
 
     # Compose screen.
     render_queue = soundcurses.curses.screen.WindowRenderQueue()
@@ -48,7 +57,8 @@ def main(stdscr):
         window_stdscr,
         window_header,
         window_nav,
-        window_content)
+        window_content,
+        window_modal)
 
     # Compose input source.
     signal_keypress = signalslot.Signal(args=['code_point'])
@@ -63,7 +73,7 @@ def main(stdscr):
         window_header,
         window_nav,
         window_content,
-        modal_window_factory)
+        window_modal)
 
     # Compose model.
     soundcloud_client = soundcloud.Client(

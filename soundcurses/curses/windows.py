@@ -7,7 +7,7 @@ class CursesWindow:
     """ Defines a base class that encapsulates a layout region, implemented
     using a curses window or panel.
 
-    RENDER_LAYER_* - Standardize render layer levels for readability.
+    RENDER_LAYER_* - Standardize special render layer levels.
     RENDER_LAYER_HIDDEN - Windows rendered on this layer will be rendered
         behind stdscr and will therefore be invisible on physical screen.
         New windows default to this render layer.
@@ -24,24 +24,29 @@ class CursesWindow:
         """ Constructor.
 
         curses - The curses library interface.
-        render_layer - Ranges from 0 (lowest) to integer n (higher). Layers are
-            rendered from lowest to highest. Remains public so that render queue
-            can access value. Windows on the same render layer will be rendered
-            in arbitrary order.
+        render_layer_default - Ranges from 0 (lowest) to integer n (higher).
+            Layers are rendered from lowest to highest. Windows on the same
+            render layer will be rendered in arbitrary order. Attribute is
+            public so that callers can "reset" _render_layer_current through
+            render_layer property if needed.
+        virtual_state_requires_update - Boolean. When true, indicates that the
+            window state has been changed and that the curses virtual screen
+            state needs to be updated to reflect the new window state.
         window - A raw curses window object.
 
         """
 
         # Declare instance attributes.
         self._curses = curses
+        self._render_layer_current = self.RENDER_LAYER_HIDDEN
         self._window = window
-        self.render_layer = self.RENDER_LAYER_HIDDEN
+        self.render_layer_default = self.RENDER_LAYER_HIDDEN
         self.virtual_state_requires_update = True
 
         # Gather information and establish initial instance state.
-        self._configure_window()
+        self._configure()
 
-    def _configure_window(self):
+    def _configure(self):
         """ Configure window properties.
 
         Sets initial window state such as borders, colors, initial content, etc.
@@ -50,8 +55,41 @@ class CursesWindow:
         """
         pass
 
+    def hide(self):
+        """ Sets current render layer to hidden. When passed to rendering queue,
+        will ensure that window is not visible upon next physical window render.
+
+        This method was defined so that calling code does not necessarily have
+        to be aware of class constant attributes such as RENDER_LAYER_HIDDEN and
+        may use this shorthand method over using render_layer property.
+
+        """
+        if self._render_layer_current != self.RENDER_LAYER_HIDDEN:
+            self._render_layer_current = self.RENDER_LAYER_HIDDEN
+            self.virtual_state_requires_update = True
+
+    @property
+    def render_layer(self):
+        return self._render_layer_current
+
+    # @render_layer.setter
+    # def render_layer(self, new_render_layer):
+        # self._render_layer_current = int(new_render_layer)
+        # self.virtual_state_requires_update = True
+
+    def show(self):
+        """ Shorthand method to set _render_layer_current to the instance's
+        _render_layer_default. Often called to reverse the effects of a call to
+        hide().
+
+        """
+        if self._render_layer_current != self.render_layer_default:
+            self._render_layer_current = self.render_layer_default
+            self.virtual_state_requires_update = True
+
     def touch(self):
-        """ Force curses to render window regardless of actual update to state.
+        """ Force curses to render window current state to virtual screen
+        regardless of actual update to window state.
 
         """
         self._window.touchwin()
@@ -78,12 +116,13 @@ class StdscrWindow(CursesWindow):
 
     """
 
-    def _configure_window(self):
+    def _configure(self):
         """ Override parent method.
 
         """
         self._window.nodelay(True)
-        self.render_layer = self.RENDER_LAYER_BASE
+        self.render_layer_default = self.RENDER_LAYER_BASE
+        self._render_layer_current = self.RENDER_LAYER_BASE
 
     def get_character(self):
         """ Attempt to sample keypress from user.
@@ -103,14 +142,15 @@ class HeaderWindow(CursesWindow):
 
     """
 
-    def _configure_window(self):
+    def _configure(self):
         """ Override parent method.
 
         Note that this window is rendered one layer above stdscr.
 
         """
         # self._window.bkgd(' ', self._curses.color_pair(1))
-        self.render_layer = self.RENDER_LAYER_BASE + 1
+        self.render_layer_default = self.RENDER_LAYER_BASE + 1
+        self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
 
 class NavWindow(CursesWindow):
@@ -121,12 +161,13 @@ class NavWindow(CursesWindow):
 
     """
 
-    def _configure_window(self):
+    def _configure(self):
         """ Override parent method.
 
         """
         self._window.border()
-        self.render_layer = self.RENDER_LAYER_BASE + 1
+        self.render_layer_default = self.RENDER_LAYER_BASE + 1
+        self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
 
 class ContentWindow(CursesWindow):
@@ -136,67 +177,51 @@ class ContentWindow(CursesWindow):
 
     """
 
-    def _configure_window(self):
+    def _configure(self):
         """ Override parent method.
 
         """
         self._window.border(
             ' ', ' ', 0, ' ',
             self._curses.ACS_HLINE, self._curses.ACS_HLINE, ' ', ' ')
-        self.render_layer = self.RENDER_LAYER_BASE + 1
+        self.render_layer_default = self.RENDER_LAYER_BASE + 1
+        self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
 
-class ModalPromptWindow(CursesWindow):
+class ModalWindow(CursesWindow):
     """ Manages the display and operation of a modal window on a rendering layer
-    that will place it on top of existing windows.
-
-    Instances designed to be created and destroyed along with each modal window.
+    that will place it on top of existing windows. Hidden by default.
 
     Note that window.addstr() and/or window.getstr() contains implicit refresh.
 
     """
 
-    def __init__(self, curses, window, prompt_string):
-        """ Override parent method. Added prompt string parameter.
+    def _clear(self):
+        """ Clear all window content and re-draw border.
 
         """
-        super().__init__(curses, window)
-        if not self._validate_prompt_string(prompt_string):
-            raise ValueError('Prompt string too long for modal window.')
+        self._window.erase()
+        self._window.border()
 
-        self._prompt_string = prompt_string
-
-    def _configure_window(self):
+    def _configure(self):
         """ Override parent method.
 
-        Note that this window is rendered above static UI windows.
+        Note that this window is designed to be rendered above static UI
+        windows.
 
         """
-        self._window.border()
-        self.render_layer = self.RENDER_LAYER_HIDDEN
 
-    def _validate_prompt_string(self, prompt_string):
-        """ Called in the constructor.
+        self._clear()
+        self.render_layer_default = self.RENDER_LAYER_BASE + 2
+        self._render_layer_current = self.RENDER_LAYER_HIDDEN
 
-        When rendered to the window, the prompt string must fit on a single
-        line. The window may have a border so prompt string must have at least
-        two fewer characters than the window has columns.
+    def prompt(self, prompt_string):
+        """ Clears window and displays a prompt for input to the user. Returns
+        the entered string. Currently, the prompt string is only a single line
+        and is rendered in the center of the window with the user input echoed
+        below it.
 
-        Returns Boolean true if valid, false otherwise.
-
-        """
-        prompt_string_is_valid = False
-        if len(prompt_string) < self._window.getmaxyx()[1] - 2:
-            prompt_string_is_valid = True
-
-        return prompt_string_is_valid
-
-    def prompt(self):
-        """ Prompts user for input and returns the entered string. Currently,
-        the prompt string is only a single line and is rendered in the center of
-        the window with the user input echoed below it.
-
-        Note that window.addstr() and/or window.getstr() implicitly call screen
+        Warning: window.addstr() and/or window.getstr() implicitly call screen
         refreshes.
 
         Note that this converts the bytes object returned by window.getstr()
@@ -206,18 +231,34 @@ class ModalPromptWindow(CursesWindow):
         of return values.
 
         """
-        # Draw prompt string. In order for both prompt string and input line to
-        # appear centered in modal, both lines must be shifted upward on y axis
-        # by two lines.
+        # Throw an exception if prompt is called while window is hidden.
+        # Attempting to do so simply causes the prompt and the user's input to
+        # be rendered over untouched windows while the modal window itself,
+        # including its border, is not rendered.
+        if self._render_layer_current == self.RENDER_LAYER_HIDDEN:
+            raise RuntimeError('Cannot issue prompt while window is hidden.')
+
+        prompt_string_length = len(prompt_string)
         window_dimensions = self._window.getmaxyx()
-        prompt_string_length = len(self._prompt_string)
+
+        # Validate prompt string. Subtract two from columns to account for
+        # window border.
+        if prompt_string_length > window_dimensions[1] - 2:
+            raise ValueError('Prompt string will not fit in window.')
+
+        # Draw prompt string. Prompt string and input line span two window lines
+        # in total. In order for both prompt string and input line to appear
+        # centered in modal, therefore, both lines must be shifted upward on y
+        # axis by two lines.
+        self._clear()
         prompt_string_coord_y = round((window_dimensions[0] - 2) / 2)
         prompt_string_coord_x = round(
             (window_dimensions[1] - prompt_string_length) / 2)
         self._window.addstr(
-            prompt_string_coord_y, prompt_string_coord_x, self._prompt_string)
+            prompt_string_coord_y, prompt_string_coord_x, prompt_string)
 
-        # Start input polling.
+        # Start input polling. User's input will be displayed directly below
+        # prompt.
         self._curses.echo()
         input_string = self._window.getstr(
             prompt_string_coord_y + 1, prompt_string_coord_x)
@@ -226,58 +267,58 @@ class ModalPromptWindow(CursesWindow):
         return input_string.decode(self._curses.character_encoding)
 
 
-class ModalWindowFactory:
-    """ Creates and returns curses windows that are designed to act as modals.
+# class ModalWindowFactory:
+    # """ Creates and returns curses windows that are designed to act as modals.
 
-    """
+    # """
 
-    POSITION_CENTER = 0
+    # POSITION_CENTER = 0
 
-    def __init__(self, curses):
-        """ Note that a curses stdscr object must have already been created in
-        order for the terminal dimensions (such as curses.COLS) to be available.
-        This class requires the values stored in curses.LINES and curses.COLS.
+    # def __init__(self, curses):
+        # """ Note that a curses stdscr object must have already been created in
+        # order for the terminal dimensions (such as curses.COLS) to be available.
+        # This class requires the values stored in curses.LINES and curses.COLS.
 
-        """
-        self._curses = curses
+        # """
+        # self._curses = curses
 
-    def _get_window_coords(self, lines, cols, position):
-        """ Given a desired position class constant and dimensions of a curses
-        window, returns the coordinates at which the top left corner of the
-        window should be placed. Returns a tuple of coords (y, x).
+    # def _get_window_coords(self, lines, cols, position):
+        # """ Given a desired position class constant and dimensions of a curses
+        # window, returns the coordinates at which the top left corner of the
+        # window should be placed. Returns a tuple of coords (y, x).
 
-        Note that the x and y coord order is switched. Maintains consistency
-        with curses library's standard (y, x) tuple.
+        # Note that the x and y coord order is switched. Maintains consistency
+        # with curses library's standard (y, x) tuple.
 
-        Returns tuple of integer coordinates (y, x).
+        # Returns tuple of integer coordinates (y, x).
 
-        """
-        if position == self.POSITION_CENTER:
-            coord_y = round((self._curses.LINES - lines) / 2)
-            coord_x = round((self._curses.COLS - cols) / 2)
-        else:
-            raise ValueError('Unknown positional constant.')
+        # """
+        # if position == self.POSITION_CENTER:
+            # coord_y = round((self._curses.LINES - lines) / 2)
+            # coord_x = round((self._curses.COLS - cols) / 2)
+        # else:
+            # raise ValueError('Unknown positional constant.')
 
-        return (coord_y, coord_x)
+        # return (coord_y, coord_x)
 
-    def create_prompt_modal(self, lines, cols, prompt_string, position = None):
-        """ Instantiate and return a new curses window designed to act as a
-        modal window.
+    # def create_prompt_modal(self, lines, cols, prompt_string, position = None):
+        # """ Instantiate and return a new curses window designed to act as a
+        # modal window.
 
-        """
-        # Validate arguments.
-        if lines > self._curses.LINES or cols > self._curses.COLS:
-            raise ValueError('Modal window dimensions must not exceed ' +
-                'available terminal dimensions.')
-        if not position:
-            position = self.POSITION_CENTER
+        # """
+        # # Validate arguments.
+        # if lines > self._curses.LINES or cols > self._curses.COLS:
+            # raise ValueError('Modal window dimensions must not exceed ' +
+                # 'available terminal dimensions.')
+        # if not position:
+            # position = self.POSITION_CENTER
 
-        # Determine window top left vertex coordinates.
-        coord_tuple = self._get_window_coords(lines, cols, position)
+        # # Determine window top left vertex coordinates.
+        # coord_tuple = self._get_window_coords(lines, cols, position)
 
-        # Create new window.
-        return ModalPromptWindow(
-            self._curses,
-            self._curses.newwin(lines, cols, *coord_tuple),
-            prompt_string)
+        # # Create new window.
+        # return ModalPromptWindow(
+            # self._curses,
+            # self._curses.newwin(lines, cols, *coord_tuple),
+            # prompt_string)
 
