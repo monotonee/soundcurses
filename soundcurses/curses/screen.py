@@ -37,21 +37,47 @@ class CursesScreen:
         """
         if self._render_queue:
             for window in self._render_queue:
-                window.update_virtual_state()
+                window.update_virtual_screen()
             self._render_queue.clear()
 
-    def _handle_window_render_layer_change(self, delta, **kwargs):
+    def _force_schedule_all(self):
+        """ Add all windows to update queue regardless of necessity, touching
+        all windows to force curses to render.
+
+        Useful for forcing re-renders after window(s) change render layers.
+
+        """
+        for window in self._windows:
+            self.schedule_window_update(window, force=True)
+
+    def _handle_window_render_layer_change(self, window, delta, **kwargs):
         """ Designed as a slot to the windows' signals indiciating a render
         layer change.
 
         """
+        # If window is in render queue, it must have been touched.
+        if window in self._render_queue:
+            self._render_queue.remove(window)
+        else:
+            window.touch()
+        self.schedule_window_update(window)
+
+        self._force_schedule_all()
+
+    def _handle_window_state_change(self, window, **kwargs):
+        """ Designed as a slot for the windows' state change signal.
+
+        """
+        self.schedule_window_update(window)
 
     def add_window(self, new_window):
-        """ Add a window to the screen.
+        """ Add a new window to the screen.
 
          """
         new_window.signal_render_layer_change.connect(
             self._handle_window_render_layer_change)
+        new_window.signal_state_changed.connect(
+            self._handle_window_state_change)
         self.schedule_window_update(new_window)
 
     @property
@@ -65,18 +91,6 @@ class CursesScreen:
         """
         self._curses.destroy()
 
-    def force_render_all(self):
-        """ Add all windows to update queue regardless of necessity and then
-        execute queue.
-
-        Useful for forcing re-renders after window(s) change render layers.
-
-        """
-        for window in self._windows:
-            window.touch()
-            self.schedule_window_update(window)
-        self.render()
-
     @property
     def lines(self):
         return self._curses.LINES
@@ -85,17 +99,25 @@ class CursesScreen:
         """ Pushes window state to curses virtual screen and then renders
         virtual screen state to physical screen.
 
+        This method is kept public so that calling code, such as that of the
+        view, can make all necessary writes to window state and call a single
+        physical screen refresh rather than rely upon constant physical
+        refreshes.
+
         """
         self._execute_update_queue()
         self._curses.doupdate()
 
-    def schedule_window_update(self, window):
+    def schedule_window_update(self, window, force=False):
         """ Push window objects into render queue.
 
         The queue object handles indexing and ordering by render layer.
 
         """
-        if window.virtual_state_requires_update:
+        if window.is_touched:
+            self._render_queue.add(window)
+        elif not window.is_touched and force:
+            window.touch()
             self._render_queue.add(window)
 
 
@@ -119,6 +141,12 @@ class WindowRenderQueue():
 
         """
         self._queue = {}
+
+    def __contains__(self, window):
+        """ Implements the membership test interface.
+
+        """
+        return window in self._flatten_queue()
 
     def __iter__(self):
         """ Implements the iterable interface method.
@@ -174,13 +202,33 @@ class WindowRenderQueue():
         """ Add a window object to the queue.
 
         Render layer collisions are handled by storing items in a bucket,
-        implemented with a simple list.
+        implemented with a set iterable to prevent duplicates. Once a window has
+        been touched, it only needs to be present in the queue once.
 
         """
         if window.render_layer in self._queue:
-            self._queue[window.render_layer].append(window)
+            self._queue[window.render_layer].add(window)
         else:
-            self._queue[window.render_layer] = [window]
+            self._queue[window.render_layer] = {window}
+
+    def remove(self, window):
+        """ Remove a window from the queue if found.
+
+        Will not throw an exception of the window was not present in the queue.
+        To avoid modifying data structure during iteration, keys marked for
+        deletion are saved and applied after iteration is complete. I'm sure
+        there's a more elegant way to do this.
+
+        """
+        empty_render_layers = []
+        for render_layer, bucket in self._queue.items():
+            if window in bucket:
+                bucket.remove(window)
+                if not bucket:
+                    empty_render_layers.append(render_layer)
+
+        for empty_render_layer in empty_render_layers:
+            del self._queue[empty_render_layer]
 
     def clear(self):
         """ Empty the queue.

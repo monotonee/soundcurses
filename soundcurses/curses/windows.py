@@ -20,7 +20,8 @@ class CursesWindow:
     RENDER_LAYER_HIDDEN = 0
     RENDER_LAYER_BASE = 1
 
-    def __init__(self, curses, window, signal_render_layer_change):
+    def __init__(self, curses, window,
+        signal_render_layer_change, signal_state_changed):
         """ Constructor.
 
         _curses - The curses library interface.
@@ -30,9 +31,6 @@ class CursesWindow:
             render layer will be rendered in arbitrary order. Attribute is
             public so that callers can "reset" _render_layer_current through
             render_layer property if needed.
-        virtual_state_requires_update - Boolean. When true, indicates that the
-            window state has been changed and that the curses virtual screen
-            state needs to be updated to reflect the new window state.
 
         """
 
@@ -42,7 +40,7 @@ class CursesWindow:
         self._window = window
         self.render_layer_default = self.RENDER_LAYER_BASE
         self.signal_render_layer_change = signal_render_layer_change
-        self.virtual_state_requires_update = True
+        self.signal_state_changed = signal_state_changed
 
         # Gather information and establish initial instance state.
         self._configure()
@@ -50,7 +48,8 @@ class CursesWindow:
     def _change_render_layer(self, new_render_layer):
         render_layer_delta = int(new_render_layer) - self._render_layer_current
         self._render_layer_current = new_render_layer
-        self.signal_render_layer_change.emit(delta=render_layer_delta)
+        self.signal_render_layer_change.emit(
+            window=self, delta=render_layer_delta)
 
     def _configure(self):
         """ Configure window properties.
@@ -73,6 +72,10 @@ class CursesWindow:
         self._change_render_layer(self.RENDER_LAYER_HIDDEN)
 
     @property
+    def is_touched(self):
+        return self._window.is_wintouched()
+
+    @property
     def render_layer(self):
         return self._render_layer_current
 
@@ -89,15 +92,13 @@ class CursesWindow:
 
         """
         self._window.touchwin()
-        self.virtual_state_requires_update = True
 
-    def update_virtual_state(self):
+    def update_virtual_screen(self):
         """ Writes window state to curses' virtual screen state. Note the lack
         of checking whether or not the window state has actually changed.
 
         """
         self._window.noutrefresh()
-        self._virtual_state_requires_update = False
 
 
 class StdscrWindow(CursesWindow):
@@ -197,7 +198,7 @@ class ModalWindow(CursesWindow):
 
         """
         self._window.erase()
-        self._window.border()
+        self._configure_style()
 
     def _configure(self):
         """ Override parent method.
@@ -207,9 +208,17 @@ class ModalWindow(CursesWindow):
 
         """
 
-        self._clear()
+        self._configure_style()
         self.render_layer_default = self.RENDER_LAYER_BASE + 2
         self._render_layer_current = self.RENDER_LAYER_HIDDEN
+
+    def _configure_style(self):
+        """ Internal method for drawing borders and other decoration. Separated
+        so that borders, for instance, can be redrawn after calls to
+        window.erase() while style configuration is centralized.
+
+        """
+        self._window.border()
 
     def prompt(self, prompt_string):
         """ Clears window and displays a prompt for input to the user. Returns
@@ -228,9 +237,6 @@ class ModalWindow(CursesWindow):
 
         """
         # Throw an exception if prompt is called while window is hidden.
-        # Attempting to do so simply causes the prompt and the user's input to
-        # be rendered over untouched windows while the modal window itself,
-        # including its border, is not rendered.
         if self._render_layer_current == self.RENDER_LAYER_HIDDEN:
             raise RuntimeError('Cannot issue prompt while window is hidden.')
 

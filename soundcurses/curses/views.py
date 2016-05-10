@@ -34,21 +34,19 @@ class MainView:
         valid SoundCloud username.
 
         """
-        # Render new window. Note that the curses window methods called in the
-        # modal's prompt method have implicit curses refresh calls.
-        # self._screen.force_render_all()
         self._window_modal.show()
-        self._screen.force_render_all()
-        import time
-        time.sleep(1)
-        test_input = self._window_modal.prompt('enter username: ')
-        # self._window_modal.hide()
-        # self._screen.force_render_all()
+        self._screen.render()
+        username = self._window_modal.prompt('enter username: ')
+        self._window_modal.hide()
+        self._screen.render()
 
-        # return test_input
+        return username
 
     def start(self):
         """ Render virtual curses state to physical screen.
+
+        All necessary windows were aded to the screen at the composition root
+        level before the screen instance was passed into the view's constructor.
 
         """
         self._screen.render()
