@@ -20,10 +20,11 @@ class CursesWindow:
     RENDER_LAYER_HIDDEN = 0
     RENDER_LAYER_BASE = 1
 
-    def __init__(self, curses, window):
+    def __init__(self, curses, window, signal_render_layer_change):
         """ Constructor.
 
-        curses - The curses library interface.
+        _curses - The curses library interface.
+        _window - A raw curses window object.
         render_layer_default - Ranges from 0 (lowest) to integer n (higher).
             Layers are rendered from lowest to highest. Windows on the same
             render layer will be rendered in arbitrary order. Attribute is
@@ -32,19 +33,24 @@ class CursesWindow:
         virtual_state_requires_update - Boolean. When true, indicates that the
             window state has been changed and that the curses virtual screen
             state needs to be updated to reflect the new window state.
-        window - A raw curses window object.
 
         """
 
         # Declare instance attributes.
         self._curses = curses
-        self._render_layer_current = self.RENDER_LAYER_HIDDEN
+        self._render_layer_current = self.RENDER_LAYER_BASE
         self._window = window
-        self.render_layer_default = self.RENDER_LAYER_HIDDEN
+        self.render_layer_default = self.RENDER_LAYER_BASE
+        self.signal_render_layer_change = signal_render_layer_change
         self.virtual_state_requires_update = True
 
         # Gather information and establish initial instance state.
         self._configure()
+
+    def _change_render_layer(self, new_render_layer):
+        render_layer_delta = int(new_render_layer) - self._render_layer_current
+        self._render_layer_current = new_render_layer
+        self.signal_render_layer_change.emit(delta=render_layer_delta)
 
     def _configure(self):
         """ Configure window properties.
@@ -64,28 +70,18 @@ class CursesWindow:
         may use this shorthand method over using render_layer property.
 
         """
-        if self._render_layer_current != self.RENDER_LAYER_HIDDEN:
-            self._render_layer_current = self.RENDER_LAYER_HIDDEN
-            self.virtual_state_requires_update = True
+        self._change_render_layer(self.RENDER_LAYER_HIDDEN)
 
     @property
     def render_layer(self):
         return self._render_layer_current
 
-    # @render_layer.setter
-    # def render_layer(self, new_render_layer):
-        # self._render_layer_current = int(new_render_layer)
-        # self.virtual_state_requires_update = True
-
     def show(self):
-        """ Shorthand method to set _render_layer_current to the instance's
-        _render_layer_default. Often called to reverse the effects of a call to
-        hide().
+        """ Shorthand method to set window's render layer to default. Often
+        called to reverse the effects of a call to hide().
 
         """
-        if self._render_layer_current != self.render_layer_default:
-            self._render_layer_current = self.render_layer_default
-            self.virtual_state_requires_update = True
+        self._change_render_layer(self.render_layer_default)
 
     def touch(self):
         """ Force curses to render window current state to virtual screen
@@ -97,7 +93,7 @@ class CursesWindow:
 
     def update_virtual_state(self):
         """ Writes window state to curses' virtual screen state. Note the lack
-        of checking whether or not the window state has changed.
+        of checking whether or not the window state has actually changed.
 
         """
         self._window.noutrefresh()

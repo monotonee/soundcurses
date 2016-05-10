@@ -25,18 +25,26 @@ def main(stdscr):
     curses_wrapper = soundcurses.curses.components.CursesWrapper(curses, locale)
 
     # Compose curses window wrappers.
+    signal_window_render_layer_changed = signalslot.Signal(args=['delta'])
     window_stdscr = soundcurses.curses.windows.StdscrWindow(
-        curses_wrapper, stdscr)
+        curses_wrapper,
+        stdscr,
+        signal_window_render_layer_changed)
     window_header = soundcurses.curses.windows.HeaderWindow(
-        curses_wrapper, curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0))
+        curses_wrapper,
+        curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0),
+        signal_window_render_layer_changed)
     window_nav = soundcurses.curses.windows.NavWindow(
-        curses_wrapper, curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0))
+        curses_wrapper,
+        curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0),
+        signal_window_render_layer_changed)
     window_content = soundcurses.curses.windows.ContentWindow(
         curses_wrapper,
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
             curses_wrapper.COLS,
-            6, 0))
+            6, 0),
+        signal_window_render_layer_changed)
     # Create reusable modal window 40% of screen size, centered in screen.
     # Is hidden by default.
     window_modal_dim_y = round(curses_wrapper.LINES * 0.4)
@@ -47,7 +55,8 @@ def main(stdscr):
             window_modal_dim_y,
             window_modal_dim_x,
             round((curses_wrapper.LINES - window_modal_dim_y) / 2),
-            round((curses_wrapper.COLS - window_modal_dim_x) / 2)))
+            round((curses_wrapper.COLS - window_modal_dim_x) / 2)),
+        signal_window_render_layer_changed)
 
     # Compose screen.
     render_queue = soundcurses.curses.screen.WindowRenderQueue()
@@ -91,6 +100,7 @@ def main(stdscr):
         nav_controller,
         content_controller)
     signal_keypress.connect(main_controller.handle_input_keypress)
+
     main_controller.start_application()
 
 

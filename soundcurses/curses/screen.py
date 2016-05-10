@@ -11,7 +11,7 @@ class CursesScreen:
     object.
 
     *args - It seems to improve abstraction if all windows are passed to this
-        class upon construction. This is helpful for forced refreshes of the
+        class upon construction. This is helpful for complete refreshes of the
         entire screen. See force_render()
 
     _render_queue - A queue of window objects indexed by render layer.
@@ -28,16 +28,31 @@ class CursesScreen:
         # New windows require initial update. Attempt to add all to render queue
         # in case initial virtual state update has not been completed.
         for window in self._windows:
-            self.schedule_window_update(window)
+            self.add_window(window)
 
     def _execute_update_queue(self):
-        """ Iterate render queue and push window states to curses virtual state.
+        """ Iterate render queue and push window states to curses virtual
+        screen.
 
         """
         if self._render_queue:
             for window in self._render_queue:
                 window.update_virtual_state()
             self._render_queue.clear()
+
+    def _handle_window_render_layer_change(self, delta, **kwargs):
+        """ Designed as a slot to the windows' signals indiciating a render
+        layer change.
+
+        """
+
+    def add_window(self, new_window):
+        """ Add a window to the screen.
+
+         """
+        new_window.signal_render_layer_change.connect(
+            self._handle_window_render_layer_change)
+        self.schedule_window_update(new_window)
 
     @property
     def cols(self):
@@ -149,10 +164,11 @@ class WindowRenderQueue():
         return itertools.chain(*self._queue.values())
 
         """
-        sorted_list = []
-        for key in sorted(self._queue.keys()):
-            sorted_list.append(self._queue[key])
-        return itertools.chain.from_iterable(sorted_list)
+        # sorted_list = []
+        # for key in sorted(self._queue.keys()):
+            # sorted_list.append(self._queue[key])
+        # return itertools.chain.from_iterable(sorted_list)
+        return itertools.chain(*self._queue.values())
 
     def add(self, window):
         """ Add a window object to the queue.
