@@ -45,6 +45,14 @@ class CursesWindow:
         # Gather information and establish initial instance state.
         self._configure()
 
+    def __getattr__(self, name):
+        """ According to my current knowledge, allows attribute access
+        passthrough to underlying window object. If attribute is nonexistent,
+        AttributeError is raised by getattr() and allowed to bubble.
+
+        """
+        return getattr(self._window, name)
+
     def _change_render_layer(self, new_render_layer):
         render_layer_delta = int(new_render_layer) - self._render_layer_current
         self._render_layer_current = new_render_layer
@@ -72,10 +80,6 @@ class CursesWindow:
         self._change_render_layer(self.RENDER_LAYER_HIDDEN)
 
     @property
-    def is_touched(self):
-        return self._window.is_wintouched()
-
-    @property
     def render_layer(self):
         return self._render_layer_current
 
@@ -85,20 +89,6 @@ class CursesWindow:
 
         """
         self._change_render_layer(self.render_layer_default)
-
-    def touch(self):
-        """ Force curses to render window current state to virtual screen
-        regardless of actual update to window state.
-
-        """
-        self._window.touchwin()
-
-    def update_virtual_screen(self):
-        """ Writes window state to curses' virtual screen state. Note the lack
-        of checking whether or not the window state has actually changed.
-
-        """
-        self._window.noutrefresh()
 
 
 class StdscrWindow(CursesWindow):

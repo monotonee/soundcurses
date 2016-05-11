@@ -3,6 +3,7 @@
 """
 
 import itertools
+import time
 
 class CursesScreen:
     """ Makes sure that curses windows' states are written to virtual screen
@@ -20,24 +21,25 @@ class CursesScreen:
 
     """
 
-    def __init__(self, curses, render_queue, *args):
+    def __init__(self, curses, render_queue, signal_rendered, *args):
         self._curses = curses
         self._render_queue = render_queue
         self._windows = [*args]
+        self.signal_rendered = signal_rendered
 
         # New windows require initial update. Attempt to add all to render queue
         # in case initial virtual state update has not been completed.
         for window in self._windows:
             self.add_window(window)
 
-    def _execute_update_queue(self):
+    def _flush_update_queue(self):
         """ Iterate render queue and push window states to curses virtual
         screen.
 
         """
         if self._render_queue:
             for window in self._render_queue:
-                window.update_virtual_screen()
+                window.noutrefresh()
             self._render_queue.clear()
 
     def _force_schedule_all(self):
@@ -59,7 +61,7 @@ class CursesScreen:
         if window in self._render_queue:
             self._render_queue.remove(window)
         else:
-            window.touch()
+            window.touchwin()
         self.schedule_window_update(window)
 
         self._force_schedule_all()
@@ -105,8 +107,15 @@ class CursesScreen:
         refreshes.
 
         """
-        self._execute_update_queue()
+        self._flush_update_queue()
         self._curses.doupdate()
+        self.signal_rendered.emit()
+
+    def start_render_interval(self, milliseconds):
+        """ Begins an automatic refresh interval. Each cycle flushes update
+        queue and renders physica screen.
+
+        """
 
     def schedule_window_update(self, window, force=False):
         """ Push window objects into render queue.
@@ -114,10 +123,10 @@ class CursesScreen:
         The queue object handles indexing and ordering by render layer.
 
         """
-        if window.is_touched:
+        if window.is_wintouched():
             self._render_queue.add(window)
-        elif not window.is_touched and force:
-            window.touch()
+        elif not window.is_wintouched() and force:
+            window.touchwin()
             self._render_queue.add(window)
 
 

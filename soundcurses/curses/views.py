@@ -42,6 +42,15 @@ class MainView:
 
         return username
 
+    def display_spinner(self):
+        """ Displays a modal window in which an animated spinner is rendered.
+
+        Designed to indicate that the program is waiting for some task to
+        complete.
+
+        """
+        pass
+
     def start(self):
         """ Render virtual curses state to physical screen.
 

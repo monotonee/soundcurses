@@ -35,6 +35,7 @@ class MainController:
             self._view.stop_input_polling()
         elif key_string == 'u':
             username = self._view.prompt_username()
+            self._view.display_spinner()
             # user = self._model.resolve_username(username)
 
     def start_application(self):

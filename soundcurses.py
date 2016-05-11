@@ -67,10 +67,12 @@ def main(stdscr):
         signal_window_state_changed)
 
     # Compose screen.
+    signal_rendered = signalslot.Signal()
     render_queue = soundcurses.curses.screen.WindowRenderQueue()
     curses_screen = soundcurses.curses.screen.CursesScreen(
         curses_wrapper,
         render_queue,
+        signal_rendered,
         window_stdscr,
         window_header,
         window_nav,
@@ -84,6 +86,7 @@ def main(stdscr):
         signal_keypress)
 
     # Compose view(s).
+    effects_factory = souncurses.effects.EffectsFactory(curses_screen)
     main_view = soundcurses.curses.views.MainView(
         input_source,
         curses_screen,
