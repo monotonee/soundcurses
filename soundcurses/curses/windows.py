@@ -20,8 +20,7 @@ class CursesWindow:
     RENDER_LAYER_HIDDEN = 0
     RENDER_LAYER_BASE = 1
 
-    def __init__(self, curses, window,
-        signal_render_layer_change, signal_state_changed):
+    def __init__(self, curses, window, signal_render_layer_change):
         """ Constructor.
 
         _curses - The curses library interface.
@@ -40,7 +39,6 @@ class CursesWindow:
         self._window = window
         self.render_layer_default = self.RENDER_LAYER_BASE
         self.signal_render_layer_change = signal_render_layer_change
-        self.signal_state_changed = signal_state_changed
 
         # Gather information and establish initial instance state.
         self._configure()

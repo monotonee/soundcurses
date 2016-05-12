@@ -13,7 +13,7 @@ import soundcloud
 # Local imports.
 import soundcurses.controllers
 import soundcurses.models
-from soundcurses.curses import (components, screen, views, windows)
+from soundcurses.curses import (components, effects, screen, views, windows)
 
 def main(stdscr):
     """ Compose curses windows and pads.
@@ -27,31 +27,25 @@ def main(stdscr):
     # Compose curses window wrappers.
     signal_window_render_layer_changed = signalslot.Signal(
         args=['window', 'delta'])
-    signal_window_state_changed = signalslot.Signal(
-        args=['window'])
     window_stdscr = soundcurses.curses.windows.StdscrWindow(
         curses_wrapper,
         stdscr,
-        signal_window_render_layer_changed,
-        signal_window_state_changed)
+        signal_window_render_layer_changed)
     window_header = soundcurses.curses.windows.HeaderWindow(
         curses_wrapper,
         curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0),
-        signal_window_render_layer_changed,
-        signal_window_state_changed)
+        signal_window_render_layer_changed)
     window_nav = soundcurses.curses.windows.NavWindow(
         curses_wrapper,
         curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0),
-        signal_window_render_layer_changed,
-        signal_window_state_changed)
+        signal_window_render_layer_changed)
     window_content = soundcurses.curses.windows.ContentWindow(
         curses_wrapper,
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
             curses_wrapper.COLS,
             6, 0),
-        signal_window_render_layer_changed,
-        signal_window_state_changed)
+        signal_window_render_layer_changed)
     # Create reusable modal window 40% of screen size, centered in screen.
     # Is hidden by default.
     window_modal_dim_y = round(curses_wrapper.LINES * 0.4)
@@ -63,8 +57,7 @@ def main(stdscr):
             window_modal_dim_x,
             round((curses_wrapper.LINES - window_modal_dim_y) / 2),
             round((curses_wrapper.COLS - window_modal_dim_x) / 2)),
-        signal_window_render_layer_changed,
-        signal_window_state_changed)
+        signal_window_render_layer_changed)
 
     # Compose screen.
     signal_rendered = signalslot.Signal()
@@ -86,7 +79,7 @@ def main(stdscr):
         signal_keypress)
 
     # Compose view(s).
-    effects_factory = souncurses.effects.EffectsFactory(curses_screen)
+    effects_factory = soundcurses.curses.effects.EffectsFactory(curses_screen)
     main_view = soundcurses.curses.views.MainView(
         input_source,
         curses_screen,

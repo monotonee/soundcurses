@@ -32,7 +32,16 @@ class CursesScreen:
         for window in self._windows:
             self.add_window(window)
 
-    def _flush_update_queue(self):
+    def _detect_touched_windows(self):
+        """ Check all windows for touched status. If touched, add to update
+        queue.
+
+        """
+        for window in self._windows:
+            if window.is_wintouched():
+                self._render_queue.add(window)
+
+    def _flush_render_queue(self):
         """ Iterate render queue and push window states to curses virtual
         screen.
 
@@ -42,15 +51,14 @@ class CursesScreen:
                 window.noutrefresh()
             self._render_queue.clear()
 
-    def _force_schedule_all(self):
-        """ Add all windows to update queue regardless of necessity, touching
-        all windows to force curses to render.
+    def _force_touch_all(self):
+        """ Touch all windows to force curses to render all.
 
         Useful for forcing re-renders after window(s) change render layers.
 
         """
         for window in self._windows:
-            self.schedule_window_update(window, force=True)
+            window.touchwin()
 
     def _handle_window_render_layer_change(self, window, delta, **kwargs):
         """ Designed as a slot to the windows' signals indiciating a render
@@ -58,19 +66,11 @@ class CursesScreen:
 
         """
         # If window is in render queue, it must have been touched.
+        # No need to add to queue since _detect_touched_windows call in render()
+        # will perform that function.
         if window in self._render_queue:
             self._render_queue.remove(window)
-        else:
-            window.touchwin()
-        self.schedule_window_update(window)
-
-        self._force_schedule_all()
-
-    def _handle_window_state_change(self, window, **kwargs):
-        """ Designed as a slot for the windows' state change signal.
-
-        """
-        self.schedule_window_update(window)
+        self._force_touch_all()
 
     def add_window(self, new_window):
         """ Add a new window to the screen.
@@ -78,9 +78,6 @@ class CursesScreen:
          """
         new_window.signal_render_layer_change.connect(
             self._handle_window_render_layer_change)
-        new_window.signal_state_changed.connect(
-            self._handle_window_state_change)
-        self.schedule_window_update(new_window)
 
     @property
     def cols(self):
@@ -107,27 +104,10 @@ class CursesScreen:
         refreshes.
 
         """
-        self._flush_update_queue()
+        self._detect_touched_windows()
+        self._flush_render_queue()
         self._curses.doupdate()
         self.signal_rendered.emit()
-
-    def start_render_interval(self, milliseconds):
-        """ Begins an automatic refresh interval. Each cycle flushes update
-        queue and renders physica screen.
-
-        """
-
-    def schedule_window_update(self, window, force=False):
-        """ Push window objects into render queue.
-
-        The queue object handles indexing and ordering by render layer.
-
-        """
-        if window.is_wintouched():
-            self._render_queue.add(window)
-        elif not window.is_wintouched() and force:
-            window.touchwin()
-            self._render_queue.add(window)
 
 
 class WindowRenderQueue():
