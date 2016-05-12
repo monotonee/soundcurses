@@ -49,7 +49,19 @@ class MainView:
         complete.
 
         """
-        pass
+        from . import effects
+        from time import sleep
+        self._window_modal.show()
+        self._window_modal._clear()
+        simple_spinner = effects.SimpleSpinner(self._screen, self._window_modal)
+        simple_spinner.start(5, 5)
+        self._screen.render()
+        for i in range(0, 8):
+            self._screen.render()
+            sleep(.5)
+        simple_spinner.stop()
+        self._window_modal.hide()
+        self._screen.render()
 
     def start(self):
         """ Render virtual curses state to physical screen.

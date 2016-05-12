@@ -13,7 +13,7 @@ class CursesScreen:
 
     *args - It seems to improve abstraction if all windows are passed to this
         class upon construction. This is helpful for complete refreshes of the
-        entire screen. See force_render()
+        entire screen.
 
     _render_queue - A queue of window objects indexed by render layer.
     _windows - Begins as a straight conversion from *args tuple into a list.
