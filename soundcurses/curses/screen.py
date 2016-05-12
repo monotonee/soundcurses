@@ -110,7 +110,7 @@ class CursesScreen:
         self.signal_rendered.emit()
 
 
-class WindowRenderQueue():
+class WindowRenderQueue:
     """ This class is designed to abstract the ordering of curses windows
     pushed onto the queue for later rendering.
 
