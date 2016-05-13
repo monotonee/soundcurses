@@ -24,13 +24,12 @@ class CursesScreen:
     def __init__(self, curses, render_queue, signal_rendered, *args):
         self._curses = curses
         self._render_queue = render_queue
-        self._windows = [*args]
+        self._windows = []
         self.signal_rendered = signal_rendered
 
-        # New windows require initial update. Attempt to add all to render queue
-        # in case initial virtual state update has not been completed.
-        for window in self._windows:
-            self.add_window(window)
+        if args:
+            for window in args:
+                self.add_window(window)
 
     def _detect_touched_windows(self):
         """ Check all windows for touched status. If touched, add to update
@@ -78,6 +77,7 @@ class CursesScreen:
          """
         new_window.signal_render_layer_change.connect(
             self._handle_window_render_layer_change)
+        self._windows.append(new_window)
 
     @property
     def cols(self):

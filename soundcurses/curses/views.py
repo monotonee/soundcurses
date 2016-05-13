@@ -4,6 +4,8 @@ interfaces to controller classes for the manipulation of the curses TUI.
 
 """
 
+import time
+
 class MainView:
     """ Highest-level view designed to control broad functions often associated
     with curses' stdscr. Manipulated by the main controller class.
@@ -20,7 +22,6 @@ class MainView:
             components in a "composited" TUI view.
 
         """
-        # Declare instance attributes.
         self._input_source = input_source
         self._screen = screen
         self._window_content = window_content
@@ -49,17 +50,15 @@ class MainView:
         complete.
 
         """
-        from . import effects
-        from time import sleep
+        self._window_modal.start_spinner()
         self._window_modal.show()
-        self._window_modal._clear()
-        simple_spinner = effects.SimpleSpinner(self._screen, self._window_modal)
-        simple_spinner.start(5, 5)
         self._screen.render()
+
         for i in range(0, 8):
             self._screen.render()
-            sleep(.5)
-        simple_spinner.stop()
+            time.sleep(.5)
+
+        self._window_modal.stop_spinner()
         self._window_modal.hide()
         self._screen.render()
 

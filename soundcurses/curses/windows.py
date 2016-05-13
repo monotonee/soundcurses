@@ -66,6 +66,10 @@ class CursesWindow:
         """
         pass
 
+    @property
+    def cols(self):
+        return self._window.getmaxyx()[1]
+
     def hide(self):
         """ Sets current render layer to hidden. When passed to rendering queue,
         will ensure that window is not visible upon next physical window render.
@@ -76,6 +80,10 @@ class CursesWindow:
 
         """
         self._change_render_layer(self.RENDER_LAYER_HIDDEN)
+
+    @property
+    def lines(self):
+        return self._window.getmaxyx()[0]
 
     @property
     def render_layer(self):
@@ -181,6 +189,13 @@ class ModalWindow(CursesWindow):
 
     """
 
+    def __init__(self, curses, window, signal_render_layer_change,
+        effects_factory):
+        super().__init__(curses, window, signal_render_layer_change)
+
+        self._current_spinner = None
+        self._effects_factory = effects_factory
+
     def _clear(self):
         """ Clear all window content and re-draw border.
 
@@ -255,3 +270,22 @@ class ModalWindow(CursesWindow):
         self._curses.noecho()
 
         return input_string.decode(self._curses.character_encoding)
+
+    def start_spinner(self):
+        """ A spinner is akin to a loading indicator. When called, this method
+        prepares the modal window for display of the passed spinner object. When
+        started, the spinners the next frame of their animations after each
+        screen render cycle.
+
+        """
+        self._clear()
+
+        self._current_spinner = self._effects_factory.create_simple_spinner(
+            self)
+        self._current_spinner.start(
+            round((self.lines - self._current_spinner.lines) / 2),
+            round((self.cols - self._current_spinner.cols) / 2))
+
+    def stop_spinner(self):
+        self._current_spinner.stop()
+        self._current_spinner = None

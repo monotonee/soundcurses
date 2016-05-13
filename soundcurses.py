@@ -46,18 +46,6 @@ def main(stdscr):
             curses_wrapper.COLS,
             6, 0),
         signal_window_render_layer_changed)
-    # Create reusable modal window 40% of screen size, centered in screen.
-    # Is hidden by default.
-    window_modal_dim_y = round(curses_wrapper.LINES * 0.4)
-    window_modal_dim_x = round(curses_wrapper.COLS * 0.4)
-    window_modal = soundcurses.curses.windows.ModalWindow(
-        curses_wrapper,
-        curses_wrapper.newwin(
-            window_modal_dim_y,
-            window_modal_dim_x,
-            round((curses_wrapper.LINES - window_modal_dim_y) / 2),
-            round((curses_wrapper.COLS - window_modal_dim_x) / 2)),
-        signal_window_render_layer_changed)
 
     # Compose screen.
     signal_rendered = signalslot.Signal()
@@ -69,8 +57,24 @@ def main(stdscr):
         window_stdscr,
         window_header,
         window_nav,
-        window_content,
-        window_modal)
+        window_content)
+
+    effects_factory = soundcurses.curses.effects.EffectsFactory(curses_screen)
+
+    # Create reusable modal window 40% of screen size, centered in screen.
+    # Is hidden by default.
+    window_modal_dim_y = round(curses_wrapper.LINES * 0.4)
+    window_modal_dim_x = round(curses_wrapper.COLS * 0.4)
+    window_modal = soundcurses.curses.windows.ModalWindow(
+        curses_wrapper,
+        curses_wrapper.newwin(
+            window_modal_dim_y,
+            window_modal_dim_x,
+            round((curses_wrapper.LINES - window_modal_dim_y) / 2),
+            round((curses_wrapper.COLS - window_modal_dim_x) / 2)),
+        signal_window_render_layer_changed,
+        effects_factory)
+    curses_screen.add_window(window_modal)
 
     # Compose input source.
     signal_keypress = signalslot.Signal(args=['code_point'])
@@ -79,7 +83,6 @@ def main(stdscr):
         signal_keypress)
 
     # Compose view(s).
-    effects_factory = soundcurses.curses.effects.EffectsFactory(curses_screen)
     main_view = soundcurses.curses.views.MainView(
         input_source,
         curses_screen,

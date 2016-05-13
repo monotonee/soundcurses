@@ -17,7 +17,7 @@ class AbstractSpinner(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def height(self):
+    def lines(self):
         """ Returns the total number of lines the effect spans when rendered to
         the screen.
 
@@ -40,7 +40,7 @@ class AbstractSpinner(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def width(self):
+    def cols(self):
         """ Returns the total number of columns the effect spans when rendered
         to the screen.
 
@@ -57,12 +57,13 @@ class SimpleSpinner(AbstractSpinner):
     def __init__(self, screen, window):
         super().__init__(screen, window)
 
+        self._cols = 1
         self._coord_y = 0
         self._coord_x = 0
-        self._height = 1
+        self._lines = 1
         self._spinner_chars = ('/', '―', '\\', '|')
         self._spinner_chars_iterator = itertools.cycle(self._spinner_chars)
-        self._width = 1
+
         self.active = False
 
     def _handle_screen_render(self, **kwargs):
@@ -70,7 +71,6 @@ class SimpleSpinner(AbstractSpinner):
         physical curses screen has been rendered.
 
         """
-        # self._window.addch(5, 5, 'A')
         self._render_next_character()
 
     def _render_next_character(self):
@@ -80,12 +80,20 @@ class SimpleSpinner(AbstractSpinner):
             next(self._spinner_chars_iterator))
 
     @property
-    def height(self):
+    def cols(self):
+        """ Returns the total number of columns the effect spans when rendered
+        to the screen.
+
+        """
+        return self._cols
+
+    @property
+    def lines(self):
         """ Returns the total number of lines the effect spans when rendered to
         the screen.
 
         """
-        return self._height
+        return self._lines
 
     def start(self, y, x):
         """ Enable the display of the effect on the next render cycle(s).
@@ -105,14 +113,6 @@ class SimpleSpinner(AbstractSpinner):
             self._screen.signal_rendered.disconnect(self._handle_screen_render)
             self._window.delch(self._coord_y, self._coord_x)
             self.active = False
-
-    @property
-    def width(self):
-        """ Returns the total number of columns the effect spans when rendered
-        to the screen.
-
-        """
-        return self._width
 
 
 class EffectsFactory:
