@@ -77,10 +77,7 @@ def main(stdscr):
     curses_screen.add_window(window_modal)
 
     # Compose input source.
-    signal_keypress = signalslot.Signal(args=['code_point'])
-    input_source = soundcurses.curses.components.InputSource(
-        window_stdscr,
-        signal_keypress)
+    input_source = soundcurses.curses.components.InputSource(window_stdscr)
 
     # Compose view(s).
     main_view = soundcurses.curses.views.MainView(
@@ -106,10 +103,7 @@ def main(stdscr):
         main_model,
         nav_controller,
         content_controller)
-    signal_keypress.connect(main_controller.handle_input_keypress)
 
     main_controller.start_application()
-
-
 
 curses.wrapper(main)

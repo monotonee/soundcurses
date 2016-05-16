@@ -72,27 +72,8 @@ class InputSource:
 
     """
 
-    def __init__(self, window, signal_keypress):
+    def __init__(self, window):
         self._window = window
-        self._signal_keypress = signal_keypress
-        self._poll_input = True
 
-    def start(self):
-        """ Starts polling for input from window.
-
-        window.getkey() is used so that the entities handling the keypress
-        events don't need to be aware of curses' code point constants.
-
-        """
-        self._poll_input = True
-        while self._poll_input:
-            key_string = self._window.get_character()
-            if key_string:
-                self._signal_keypress.emit(key_string=key_string)
-
-    def stop(self):
-        """ Sets input polling loop sentinel value to Boolean false, breaking
-        the polling loop if currently running.
-
-        """
-        self._poll_input = False
+    def sample_input(self):
+        return self._window.get_character()

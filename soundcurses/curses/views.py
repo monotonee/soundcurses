@@ -62,6 +62,15 @@ class MainView:
         self._window_modal.hide()
         self._screen.render()
 
+    def render(self):
+        self._screen.render()
+
+    def sample_input(self):
+        """ Starts polling for input from curses windows.
+
+        """
+        return self._input_source.sample_input()
+
     def start(self):
         """ Render virtual curses state to physical screen.
 
@@ -70,15 +79,6 @@ class MainView:
 
         """
         self._screen.render()
-
-    def start_input_polling(self):
-        """ Starts polling for input from curses windows.
-
-        """
-        self._input_source.start()
-
-    def stop_input_polling(self):
-        self._input_source.stop()
 
     def stop(self):
         """ Relinquish control of the screen. Also returns window settings
