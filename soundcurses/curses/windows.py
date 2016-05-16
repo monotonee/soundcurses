@@ -286,11 +286,12 @@ class ModalWindow(CursesWindow):
 
         """
         self._clear()
-        self._current_spinner = self._effects_factory.create_simple_spinner(
-            self)
-        self._current_spinner.start(
+        self._current_spinner = self._effects_factory.create_simple_spinner()
+        self._current_spinner._add_render_instance(
+            self,
             round((self.lines - self._current_spinner.lines) / 2),
             round((self.cols - self._current_spinner.cols) / 2))
+        self._current_spinner.start()
 
     def stop_spinner(self):
         self._current_spinner.stop()
