@@ -50,17 +50,8 @@ class MainView:
         complete.
 
         """
-        self._window_modal.start_spinner()
         self._window_modal.show()
-        self._screen.render()
-
-        for i in range(0, 8):
-            self._screen.render()
-            time.sleep(.5)
-
-        self._window_modal.stop_spinner()
-        self._window_modal.hide()
-        self._screen.render()
+        self._window_modal.start_spinner()
 
     def render(self):
         self._screen.render()

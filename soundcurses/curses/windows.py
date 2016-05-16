@@ -21,7 +21,8 @@ class CursesWindow:
     RENDER_LAYER_BASE = 1
 
     def __init__(self, curses, window, signal_render_layer_change):
-        """ Constructor.
+        """
+        Constructor.
 
         _curses - The curses library interface.
         _window - A raw curses window object.
@@ -30,7 +31,6 @@ class CursesWindow:
             render layer will be rendered in arbitrary order. Attribute is
             public so that callers can "reset" _render_layer_current through
             render_layer property if needed.
-
         """
 
         # Declare instance attributes.
@@ -44,25 +44,28 @@ class CursesWindow:
         self._configure()
 
     def __getattr__(self, name):
-        """ According to my current knowledge, allows attribute access
+        """
+        According to my current knowledge, allows attribute access
         passthrough to underlying window object. If attribute is nonexistent,
         AttributeError is raised by getattr() and allowed to bubble.
-
         """
         return getattr(self._window, name)
 
     def _change_render_layer(self, new_render_layer):
+        """
+        Change render layer instance attribute and emit signal.
+        """
         render_layer_delta = int(new_render_layer) - self._render_layer_current
         self._render_layer_current = new_render_layer
         self.signal_render_layer_change.emit(
             window=self, delta=render_layer_delta)
 
     def _configure(self):
-        """ Configure window properties.
+        """
+        Configure window properties.
 
         Sets initial window state such as borders, colors, initial content, etc.
         Designed to be called only during object construction.
-
         """
         pass
 
@@ -71,13 +74,16 @@ class CursesWindow:
         return self._window.getmaxyx()[1]
 
     def hide(self):
-        """ Sets current render layer to hidden. When passed to rendering queue,
-        will ensure that window is not visible upon next physical window render.
+        """
+        Set current render layer to hidden.
+
+        When window is passed to rendering queue, will ensure that window is not
+        visible upon next physical render.
 
         This method was defined so that calling code does not necessarily have
         to be aware of class constant attributes such as RENDER_LAYER_HIDDEN and
-        may use this shorthand method over using render_layer property.
-
+        may use this shorthand method over directly accessing render_layer
+        attribute.
         """
         self._change_render_layer(self.RENDER_LAYER_HIDDEN)
 
@@ -90,9 +96,10 @@ class CursesWindow:
         return self._render_layer_current
 
     def show(self):
-        """ Shorthand method to set window's render layer to default. Often
-        called to reverse the effects of a call to hide().
+        """
+        Set window's render layer to default.
 
+        Often called to reverse the effects of a call to hide().
         """
         self._change_render_layer(self.render_layer_default)
 
@@ -279,7 +286,6 @@ class ModalWindow(CursesWindow):
 
         """
         self._clear()
-
         self._current_spinner = self._effects_factory.create_simple_spinner(
             self)
         self._current_spinner.start(
