@@ -18,3 +18,4 @@ Detect terminal color support and use color pallette if available.
 Create Makefile with installation, tests, etc.
 Before launch, update dependencies, test, and re-freeze.
 Reevaluate produence of storing locale and char encoding in curses wrapper
+Write argument "type" checks using method and attribute presence (duck typing)?
