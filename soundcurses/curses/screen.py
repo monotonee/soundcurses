@@ -6,7 +6,8 @@ import itertools
 import time
 
 class CursesScreen:
-    """ Makes sure that curses windows' states are written to virtual screen
+    """
+    Makes sure that curses windows' states are written to virtual screen
     in the correct order. Manages rendering of virtual state to screen and
     abstracts some basic functions of both the curses object and the stdscr
     object.
@@ -15,14 +16,17 @@ class CursesScreen:
         class upon construction. This is helpful for complete refreshes of the
         entire screen.
 
-    _render_queue - A queue of window objects indexed by render layer.
-    _windows - Begins as a straight conversion from *args tuple into a list.
-        Used to maintain an unordered list of references to all curses windows.
-
+    Attributes:
+        _last_rendered_timestamp (float): Timestamp of last rendering.
+        _render_queue (RenderQueue): Queue of window objects indexed by render
+            layer.
+        _windows (List): Maintains an unordered list of references to all
+            windows.
     """
 
     def __init__(self, curses, render_queue, signal_rendered, *args):
         self._curses = curses
+        self._last_render_timestamp = 0
         self._render_queue = render_queue
         self._windows = []
         self.signal_rendered = signal_rendered
@@ -71,6 +75,10 @@ class CursesScreen:
             self._render_queue.remove(window)
         self._force_touch_all()
 
+    @property
+    def last_render_timestamp(self):
+        return self._last_render_timestamp
+
     def add_window(self, new_window):
         """ Add a new window to the screen.
 
@@ -107,6 +115,7 @@ class CursesScreen:
         self._detect_touched_windows()
         self._flush_render_queue()
         self._curses.doupdate()
+        self._last_render_timestamp = time.time()
         self.signal_rendered.emit()
 
 

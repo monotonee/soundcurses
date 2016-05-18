@@ -29,29 +29,11 @@ class MainView:
         self._window_modal = window_modal
         self._window_nav = window_nav
 
-
-    def prompt_username(self):
-        """ Display a modal input window into which the user will enter a
-        valid SoundCloud username.
-
+    def destroy(self):
         """
-        self._window_modal.show()
-        self._screen.render()
-        username = self._window_modal.prompt('enter username: ')
-        self._window_modal.hide()
-        self._screen.render()
-
-        return username
-
-    def display_loading_animation(self):
-        """ Displays a modal window in which an animated spinner is rendered.
-
-        Designed to indicate that the program is waiting for some task to
-        complete.
-
+        Relinquish control of the screen. Revert terminal settings.
         """
-        self._window_modal.show()
-        self._window_modal.start_loading_animation()
+        self._screen.destroy()
 
     def hide_loading_animation(self):
         """
@@ -59,6 +41,21 @@ class MainView:
         """
         self._modal_window.stop_loading_animation()
         self._modal_window.hide()
+
+    @property
+    def last_render_timestamp(self):
+        return self._screen.last_render_timestamp
+
+    def prompt_username(self):
+        """ Display a modal input window into which the user will enter a
+        valid SoundCloud username.
+
+        """
+        self._window_modal.show()
+        username = self._window_modal.prompt('enter username: ')
+        self._window_modal.hide()
+
+        return username
 
     def render(self):
         self._screen.render()
@@ -69,18 +66,12 @@ class MainView:
         """
         return self._input_source.sample_input()
 
-    def start(self):
-        """ Render virtual curses state to physical screen.
+    def show_loading_animation(self):
+        """ Displays a modal window in which an animated spinner is rendered.
 
-        All necessary windows were aded to the screen at the composition root
-        level before the screen instance was passed into the view's constructor.
-
-        """
-        self._screen.render()
-
-    def stop(self):
-        """ Relinquish control of the screen. Also returns window settings
-        not set by curses.wrapper() to original values.
+        Designed to indicate that the program is waiting for some task to
+        complete.
 
         """
-        self._screen.destroy()
+        self._window_modal.start_loading_animation()
+        self._window_modal.show()
