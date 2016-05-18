@@ -40,7 +40,7 @@ class MainController:
             self.stop_application()
         elif input_string == 'u':
             username = self._view.prompt_username()
-            self._view.display_spinner()
+            self._view.display_loading_animation()
             # user = self._model.resolve_username(username)
 
     def start_application(self):

@@ -197,18 +197,11 @@ class ModalWindow(CursesWindow):
     """
 
     def __init__(self, curses, window, signal_render_layer_change,
-        effects_factory):
+        animation):
         super().__init__(curses, window, signal_render_layer_change)
 
+        self._current_animation = animation
         self._current_spinner = None
-        self._effects_factory = effects_factory
-
-    def _clear(self):
-        """ Clear all window content and re-draw border.
-
-        """
-        self._window.erase()
-        self._configure_style()
 
     def _configure(self):
         """ Override parent method.
@@ -229,6 +222,13 @@ class ModalWindow(CursesWindow):
 
         """
         self._window.border()
+
+    def erase(self):
+        """ Clear all window content and re-draw border.
+
+        """
+        self._window.erase()
+        self._configure_style()
 
     def prompt(self, prompt_string):
         """ Clears window and displays a prompt for input to the user. Returns
@@ -262,7 +262,7 @@ class ModalWindow(CursesWindow):
         # in total. In order for both prompt string and input line to appear
         # centered in modal, therefore, both lines must be shifted upward on y
         # axis by two lines.
-        self._clear()
+        self.erase()
         prompt_string_coord_y = round((window_dimensions[0] - 2) / 2)
         prompt_string_coord_x = round(
             (window_dimensions[1] - prompt_string_length) / 2)
@@ -278,21 +278,20 @@ class ModalWindow(CursesWindow):
 
         return input_string.decode(self._curses.character_encoding)
 
-    def start_spinner(self):
-        """ A spinner is akin to a loading indicator. When called, this method
-        prepares the modal window for display of the passed spinner object. When
-        started, the spinners the next frame of their animations after each
-        screen render cycle.
-
+    def start_loading_animation(self):
         """
-        self._clear()
-        self._current_spinner = self._effects_factory.create_simple_spinner()
-        self._current_spinner._add_render_instance(
+        Clear the window and enable the loading animation.
+        """
+        self.erase()
+        self._current_animation.add_render_instance(
             self,
-            round((self.lines - self._current_spinner.lines) / 2),
-            round((self.cols - self._current_spinner.cols) / 2))
-        self._current_spinner.start()
+            round((self.lines - self._current_animation.lines) / 2),
+            round((self.cols - self._current_animation.cols) / 2))
+        self._current_animation.start()
 
-    def stop_spinner(self):
-        self._current_spinner.stop()
-        self._current_spinner = None
+    def stop_loading_animation(self):
+        """
+        Disable the animation and clear the window.
+        """
+        self._current_animation.stop()
+        self.erase()

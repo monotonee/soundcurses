@@ -43,7 +43,7 @@ class MainView:
 
         return username
 
-    def display_spinner(self):
+    def display_loading_animation(self):
         """ Displays a modal window in which an animated spinner is rendered.
 
         Designed to indicate that the program is waiting for some task to
@@ -51,7 +51,14 @@ class MainView:
 
         """
         self._window_modal.show()
-        self._window_modal.start_spinner()
+        self._window_modal.start_loading_animation()
+
+    def hide_loading_animation(self):
+        """
+        Stop the loading animation and hide the modal window.
+        """
+        self._modal_window.stop_loading_animation()
+        self._modal_window.hide()
 
     def render(self):
         self._screen.render()

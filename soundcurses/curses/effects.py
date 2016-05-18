@@ -22,6 +22,14 @@ class AbstractAnimation(metaclass=abc.ABCMeta):
         """
         self._screen = screen
 
+    @abc.abstractmethod
+    def add_render_instance(self, window, y, x):
+        """
+        Add a window and coordinates within window at which animation will be
+        rendered.
+        """
+        pass
+
     @property
     @abc.abstractmethod
     def lines(self):
@@ -80,15 +88,6 @@ class SimpleSpinner(AbstractAnimation):
 
         self.active = False
 
-    def _add_render_instance(self, window, y, x):
-        """
-        Define a coordinate within a window at which the effect will be
-        rendered.
-
-        """
-        self._render_targets.append(
-            functools.partial(self._write_character, window, y, x))
-
     def _handle_screen_render(self, **kwargs):
         """
         Handle a screen rendering event.
@@ -115,6 +114,15 @@ class SimpleSpinner(AbstractAnimation):
         """
         window.addstr(y, x, character)
 
+    def add_render_instance(self, window, y, x):
+        """
+        Define a coordinate within a window at which the effect will be
+        rendered.
+
+        """
+        self._render_targets.append(
+            functools.partial(self._write_character, window, y, x))
+
     @property
     def cols(self):
         return self._cols
@@ -132,19 +140,4 @@ class SimpleSpinner(AbstractAnimation):
         if self.active:
             self._screen.signal_rendered.disconnect(self._handle_screen_render)
             self.active = False
-
-
-class EffectsFactory:
-    """ A class the manages the creation of effects objects.
-
-    """
-
-    def __init__(self, screen):
-        self._screen = screen
-
-    def create_simple_spinner(self):
-        """ Create and return a spinner effect object.
-
-        """
-        return SimpleSpinner(self._screen)
 

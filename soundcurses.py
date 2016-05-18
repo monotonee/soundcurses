@@ -59,10 +59,10 @@ def main(stdscr):
         window_nav,
         window_content)
 
-    effects_factory = soundcurses.curses.effects.EffectsFactory(curses_screen)
-
     # Create reusable modal window 40% of screen size, centered in screen.
     # Is hidden by default.
+    simple_spinner_animation = soundcurses.curses.effects.SimpleSpinner(
+        curses_screen)
     window_modal_dim_y = round(curses_wrapper.LINES * 0.4)
     window_modal_dim_x = round(curses_wrapper.COLS * 0.4)
     window_modal = soundcurses.curses.windows.ModalWindow(
@@ -73,7 +73,7 @@ def main(stdscr):
             round((curses_wrapper.LINES - window_modal_dim_y) / 2),
             round((curses_wrapper.COLS - window_modal_dim_x) / 2)),
         signal_window_render_layer_changed,
-        effects_factory)
+        simple_spinner_animation)
     curses_screen.add_window(window_modal)
 
     # Compose input source.
