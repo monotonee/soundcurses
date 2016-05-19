@@ -57,14 +57,16 @@ class MainController:
         Start the application.
         """
         self._application_is_running = True
+        self._view.render()
         self._run_main_loop()
-        self._view.destroy()
+        self.stop_application()
 
     def stop_application(self):
         """
         Stop the application. Public but likely called internally.
         """
         self._application_is_running = False
+        self._view.destroy()
 
 
 class RegionController(metaclass=abc.ABCMeta):
