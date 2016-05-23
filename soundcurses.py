@@ -95,14 +95,11 @@ def main(stdscr):
     main_model = soundcurses.models.MainModel(soundcloud_client)
 
     # Compose controllers.
-    nav_controller = soundcurses.controllers.NavRegionController(main_view)
-    content_controller = soundcurses.controllers.ContentRegionController(
-        main_view)
+    input_resolver = soundcurses.controllers.InputActionResolver()
     main_controller = soundcurses.controllers.MainController(
         main_view,
-        main_model,
-        nav_controller,
-        content_controller)
+        input_resolver,
+        main_model)
 
     main_controller.start_application()
 

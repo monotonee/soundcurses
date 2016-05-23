@@ -7,31 +7,26 @@ import math
 import time
 
 class MainController:
-    """ Top-evel interface for application controller actions.
-
-    Implements a basic state pattern to provide state switching for TUI region
-    focus. For instance, arrow key presses when the nav region has focus will
-    highlight nav options while arrow keys will scroll track list when content
-    region is in focus.
-
     """
+    Top-evel interface for application controller actions.
 
-    def __init__(self, view, model, controller_nav, controller_content):
+    Implements a basic state pattern context to provide dynamic behavior change.
+    """
+    def __init__(self, view, input_resolver, model):
         """
         Constructor.
         """
-
         self._application_is_running = False
-        self._controller_content = controller_content
-        self._controller_nav = controller_nav
+        self._current_state = None
+        self._input_resolver = input_resolver
         self._model = model
-        self._region_context = self._controller_nav
         self._view = view
-        self._view_render_interval = 1
+        self._view_render_interval = 0.5
 
     def _run_main_loop(self):
         while self._application_is_running:
             input_string = self._view.sample_input()
+            action = self._input_resolver.resolve_input(input_string)
             self._handle_input(input_string)
             self._render_view()
 
@@ -59,7 +54,6 @@ class MainController:
         self._application_is_running = True
         self._view.render()
         self._run_main_loop()
-        self.stop_application()
 
     def stop_application(self):
         """
@@ -69,37 +63,107 @@ class MainController:
         self._view.destroy()
 
 
-class RegionController(metaclass=abc.ABCMeta):
-    """ An abstract base class for a specialized "subcontroller" that is
-    designed to manipulate an individual region or "window" of the TUI.
-
+class StateFactory:
     """
-
-    def __init__(self, view):
+    Factory to hide creation details of state objects.
+    """
+    def __init__(self, view, model):
         self._view = view
+        self._model = model
+
+
+class BaseState(metaclass=abc.ABCMeta):
+    """
+    Provides specialized functionality to the main controller class.
+
+    Designed so that a main controller can respond to application events by
+    changing or augmenting its internal state, changing the application's
+    behavior dynamically.
+    """
+    def __init__(self, view, model):
+        """
+        Constructor.
+        """
+        self._view = view
+        self._model = model
 
     @abc.abstractmethod
-    def handle_input_keypress(self, code_point):
-        """ Accept an integer code point from a keypress and take action.
+    def enable(self):
+        """
+        Perform main tasks.
 
+        The subcontroller's main tasks. Designed to be called in response to
+        application events such as user input events.
+        """
+        pass
+
+    @abc.abstractmethod
+    def run_interval_tasks(self):
+        """
+        Run tasks that are required to be run on regular interval.
+
+        As long as the subcontroller remains active, this method will be called
+        once per main loop cycle. Do not depend on any specific execution
+        interval.
+        """
+        pass
+
+    @abc.abstractmethod
+    def disable(self):
+        """
+        Run tasks before subcontroller is removed from use in main controller.
         """
         pass
 
 
-class NavRegionController(RegionController):
-    """ Designed for specialized control of the navigation region of the TUI.
-
+class MainSubcontroller(BaseState):
     """
-
-    def handle_input_keypress(self, code_point):
+    Enabled at application start, handles state changes.
+    """
+    def __init__(self):
         pass
 
 
-class ContentRegionController(RegionController):
-    """ Designed for specialized control of the content region of the TUI.
-
+class InputActionResolver:
     """
+    Responsible for resolving raw user input to application actions.
 
-    def handle_input_keypress(self, code_point):
-        pass
+    Contains a series of constants that can be used by the application instead
+    of raw character strings or code points, allowing for more flexible key
+    mapping in the future. While currently very rudimentary, collecting this
+    functionality in a class will make user-configurable mapping much easier to
+    implement.
 
+    Currently key mapping is constrained to one-to-one relationships.
+    """
+    ACTION_ENTER_USER = 0
+    ACTION_QUIT = 1
+
+    def __init__(self):
+        """
+        Establish instance input-to-action mapping.
+        """
+        self._keymap = {}
+
+        self._populate_keymap()
+
+    def _populate_keymap(self):
+        """
+        Determine key mappings and populate the keymap dictionary.
+
+        Listed in ascending alphanumerical order by key.
+        """
+        self._keymap['q'] = self.ACTION_QUIT
+        self._keymap['u'] = self.ACTION_ENTER_USER
+
+    def resolve_input(self, input_string):
+        """
+        Translate a raw input string into an action constant.
+
+        An input string is typically the string representation of a keypress
+        or mouse event.
+
+        Returns:
+            Class ACTION_* constant if mapping exists, None otherwise.
+        """
+        return self._keymap.get(input_string, None)
