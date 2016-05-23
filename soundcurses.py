@@ -11,7 +11,7 @@ import signalslot
 import soundcloud
 
 # Local imports.
-from soundcurses import (controllers, models, user_input)
+from soundcurses import (controllers, models, states, user_input)
 from soundcurses.curses import (components, effects, screen, views, windows)
 
 def main(stdscr):
@@ -94,11 +94,13 @@ def main(stdscr):
     main_model = models.MainModel(soundcloud_client)
 
     # Compose controllers.
-    input_resolver = user_input.UserInputMapper()
+    state_factory = states.StateFactory(main_model, main_view)
+    input_mapper = user_input.UserInputMapper()
     main_controller = controllers.MainController(
-        main_view,
-        input_resolver,
-        main_model)
+        input_mapper,
+        main_model,
+        state_factory,
+        main_view)
 
     main_controller.start_application()
 

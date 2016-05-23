@@ -11,22 +11,28 @@ class MainController:
 
     Implements a basic state pattern context to provide dynamic behavior change.
     """
-    def __init__(self, view, input_resolver, model):
+    def __init__(self, input_mapper, model, state_factory, view):
         """
         Constructor.
+
         """
         self._application_is_running = False
         self._current_state = None
-        self._input_resolver = input_resolver
+        self._input_mapper = input_mapper
         self._model = model
         self._view = view
         self._view_render_interval = 0.5
 
+        initial_state = state_factory.create_no_username(self)
+        self.set_state(initial_state)
+
     def _run_main_loop(self):
         while self._application_is_running:
             input_string = self._view.sample_input()
-            action = self._input_resolver.resolve_input(input_string)
+            action = self._input_mapper.resolve_input(input_string)
             self._handle_input(input_string)
+            self._current_state.handle_input(action)
+            self._current_state.run_interval_tasks()
             self._render_view()
 
     def _render_view(self):
@@ -45,6 +51,17 @@ class MainController:
             username = self._view.prompt_username()
             self._view.show_loading_animation()
             # user = self._model.resolve_username(username)
+
+    def set_state(self, state):
+        """
+        Set internal state. Part of state pattern implementation.
+
+        Args:
+            state (BaseState): From local states module.
+
+        """
+        self._current_state = state
+        self._current_state.enter()
 
     def start_application(self):
         """
