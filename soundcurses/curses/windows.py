@@ -40,9 +40,6 @@ class CursesWindow:
         self.render_layer_default = self.RENDER_LAYER_BASE
         self.signal_render_layer_change = signal_render_layer_change
 
-        # Gather information and establish initial instance state.
-        self._configure()
-
     def __getattr__(self, name):
         """
         According to my current knowledge, allows attribute access
@@ -59,15 +56,6 @@ class CursesWindow:
         self._render_layer_current = new_render_layer
         self.signal_render_layer_change.emit(
             window=self, delta=render_layer_delta)
-
-    def _configure(self):
-        """
-        Configure window properties.
-
-        Sets initial window state such as borders, colors, initial content, etc.
-        Designed to be called only during object construction.
-        """
-        pass
 
     @property
     def cols(self):
@@ -115,10 +103,16 @@ class StdscrWindow(CursesWindow):
     screen since no content is rendered to stdscr.
 
     """
+    def __init__(self, curses, window, signal_render_layer_change):
+        super().__init__(curses, window, signal_render_layer_change)
+        self._configure()
 
     def _configure(self):
-        """ Override parent method.
+        """
+        Configure window properties.
 
+        Sets initial window state such as borders, colors, initial content, etc.
+        Designed to be called only during object construction.
         """
         self._window.nodelay(True)
         self.render_layer_default = self.RENDER_LAYER_BASE
@@ -141,12 +135,16 @@ class HeaderWindow(CursesWindow):
     mostly a static data display.
 
     """
+    def __init__(self, curses, window, signal_render_layer_change):
+        super().__init__(curses, window, signal_render_layer_change)
+        self._configure()
 
     def _configure(self):
-        """ Override parent method.
+        """
+        Configure window properties.
 
-        Note that this window is rendered one layer above stdscr.
-
+        Sets initial window state such as borders, colors, initial content, etc.
+        Designed to be called only during object construction.
         """
         # self._window.bkgd(' ', self._curses.color_pair(1))
         self.render_layer_default = self.RENDER_LAYER_BASE + 1
@@ -160,10 +158,16 @@ class NavWindow(CursesWindow):
     user may use the keyboard to select categories for track listings.
 
     """
+    def __init__(self, curses, window, signal_render_layer_change):
+        super().__init__(curses, window, signal_render_layer_change)
+        self._configure()
 
     def _configure(self):
-        """ Override parent method.
+        """
+        Configure window properties.
 
+        Sets initial window state such as borders, colors, initial content, etc.
+        Designed to be called only during object construction.
         """
         self._window.border()
         self.render_layer_default = self.RENDER_LAYER_BASE + 1
@@ -176,10 +180,16 @@ class ContentWindow(CursesWindow):
     which may be selected and played.
 
     """
+    def __init__(self, curses, window, signal_render_layer_change):
+        super().__init__(curses, window, signal_render_layer_change)
+        self._configure()
 
     def _configure(self):
-        """ Override parent method.
+        """
+        Configure window properties.
 
+        Sets initial window state such as borders, colors, initial content, etc.
+        Designed to be called only during object construction.
         """
         self._window.border(
             ' ', ' ', 0, ' ',
@@ -195,22 +205,21 @@ class ModalWindow(CursesWindow):
     Note that window.addstr() and/or window.getstr() contains implicit refresh.
 
     """
-
-    def __init__(self, curses, window, signal_render_layer_change,
-        animation):
+    def __init__(self, curses, window, signal_render_layer_change, animation):
         super().__init__(curses, window, signal_render_layer_change)
+
+        self._configure()
 
         self._current_animation = animation
         self._current_spinner = None
 
     def _configure(self):
-        """ Override parent method.
-
-        Note that this window is designed to be rendered above static UI
-        windows.
-
         """
+        Configure window properties.
 
+        Sets initial window state such as borders, colors, initial content, etc.
+        Designed to be called only during object construction.
+        """
         self._configure_style()
         self.render_layer_default = self.RENDER_LAYER_BASE + 2
         self._render_layer_current = self.RENDER_LAYER_HIDDEN
