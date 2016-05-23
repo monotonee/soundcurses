@@ -1,8 +1,7 @@
-""" Defines classes that act as application or GUI component controllers.
-
+"""
+Defines classes that act as application or GUI component controllers.
 """
 
-import abc
 import math
 import time
 
@@ -62,108 +61,3 @@ class MainController:
         self._application_is_running = False
         self._view.destroy()
 
-
-class StateFactory:
-    """
-    Factory to hide creation details of state objects.
-    """
-    def __init__(self, view, model):
-        self._view = view
-        self._model = model
-
-
-class BaseState(metaclass=abc.ABCMeta):
-    """
-    Provides specialized functionality to the main controller class.
-
-    Designed so that a main controller can respond to application events by
-    changing or augmenting its internal state, changing the application's
-    behavior dynamically.
-    """
-    def __init__(self, view, model):
-        """
-        Constructor.
-        """
-        self._view = view
-        self._model = model
-
-    @abc.abstractmethod
-    def enable(self):
-        """
-        Perform main tasks.
-
-        The subcontroller's main tasks. Designed to be called in response to
-        application events such as user input events.
-        """
-        pass
-
-    @abc.abstractmethod
-    def run_interval_tasks(self):
-        """
-        Run tasks that are required to be run on regular interval.
-
-        As long as the subcontroller remains active, this method will be called
-        once per main loop cycle. Do not depend on any specific execution
-        interval.
-        """
-        pass
-
-    @abc.abstractmethod
-    def disable(self):
-        """
-        Run tasks before subcontroller is removed from use in main controller.
-        """
-        pass
-
-
-class MainSubcontroller(BaseState):
-    """
-    Enabled at application start, handles state changes.
-    """
-    def __init__(self):
-        pass
-
-
-class InputActionResolver:
-    """
-    Responsible for resolving raw user input to application actions.
-
-    Contains a series of constants that can be used by the application instead
-    of raw character strings or code points, allowing for more flexible key
-    mapping in the future. While currently very rudimentary, collecting this
-    functionality in a class will make user-configurable mapping much easier to
-    implement.
-
-    Currently key mapping is constrained to one-to-one relationships.
-    """
-    ACTION_ENTER_USER = 0
-    ACTION_QUIT = 1
-
-    def __init__(self):
-        """
-        Establish instance input-to-action mapping.
-        """
-        self._keymap = {}
-
-        self._populate_keymap()
-
-    def _populate_keymap(self):
-        """
-        Determine key mappings and populate the keymap dictionary.
-
-        Listed in ascending alphanumerical order by key.
-        """
-        self._keymap['q'] = self.ACTION_QUIT
-        self._keymap['u'] = self.ACTION_ENTER_USER
-
-    def resolve_input(self, input_string):
-        """
-        Translate a raw input string into an action constant.
-
-        An input string is typically the string representation of a keypress
-        or mouse event.
-
-        Returns:
-            Class ACTION_* constant if mapping exists, None otherwise.
-        """
-        return self._keymap.get(input_string, None)

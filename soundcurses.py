@@ -11,8 +11,7 @@ import signalslot
 import soundcloud
 
 # Local imports.
-import soundcurses.controllers
-import soundcurses.models
+from soundcurses import (controllers, models, user_input)
 from soundcurses.curses import (components, effects, screen, views, windows)
 
 def main(stdscr):
@@ -22,24 +21,24 @@ def main(stdscr):
 
     """
 
-    curses_wrapper = soundcurses.curses.components.CursesWrapper(curses, locale)
+    curses_wrapper = components.CursesWrapper(curses, locale)
 
     # Compose curses window wrappers.
     signal_window_render_layer_changed = signalslot.Signal(
         args=['window', 'delta'])
-    window_stdscr = soundcurses.curses.windows.StdscrWindow(
+    window_stdscr = windows.StdscrWindow(
         curses_wrapper,
         stdscr,
         signal_window_render_layer_changed)
-    window_header = soundcurses.curses.windows.HeaderWindow(
+    window_header = windows.HeaderWindow(
         curses_wrapper,
         curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0),
         signal_window_render_layer_changed)
-    window_nav = soundcurses.curses.windows.NavWindow(
+    window_nav = windows.NavWindow(
         curses_wrapper,
         curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0),
         signal_window_render_layer_changed)
-    window_content = soundcurses.curses.windows.ContentWindow(
+    window_content = windows.ContentWindow(
         curses_wrapper,
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
@@ -49,8 +48,8 @@ def main(stdscr):
 
     # Compose screen.
     signal_rendered = signalslot.Signal()
-    render_queue = soundcurses.curses.screen.WindowRenderQueue()
-    curses_screen = soundcurses.curses.screen.CursesScreen(
+    render_queue = screen.WindowRenderQueue()
+    curses_screen = screen.CursesScreen(
         curses_wrapper,
         render_queue,
         signal_rendered,
@@ -61,11 +60,11 @@ def main(stdscr):
 
     # Create reusable modal window 40% of screen size, centered in screen.
     # Is hidden by default.
-    simple_spinner_animation = soundcurses.curses.effects.SimpleSpinner(
+    simple_spinner_animation = effects.SimpleSpinner(
         curses_screen)
     window_modal_dim_y = round(curses_wrapper.LINES * 0.4)
     window_modal_dim_x = round(curses_wrapper.COLS * 0.4)
-    window_modal = soundcurses.curses.windows.ModalWindow(
+    window_modal = windows.ModalWindow(
         curses_wrapper,
         curses_wrapper.newwin(
             window_modal_dim_y,
@@ -77,10 +76,10 @@ def main(stdscr):
     curses_screen.add_window(window_modal)
 
     # Compose input source.
-    input_source = soundcurses.curses.components.InputSource(window_stdscr)
+    input_source = components.InputSource(window_stdscr)
 
     # Compose view(s).
-    main_view = soundcurses.curses.views.MainView(
+    main_view = views.MainView(
         input_source,
         curses_screen,
         window_header,
@@ -92,11 +91,11 @@ def main(stdscr):
     soundcloud_client = soundcloud.Client(
         client_id='e9cd65934510bf631372af005c2f37b5',
         use_ssl=True)
-    main_model = soundcurses.models.MainModel(soundcloud_client)
+    main_model = models.MainModel(soundcloud_client)
 
     # Compose controllers.
-    input_resolver = soundcurses.controllers.InputActionResolver()
-    main_controller = soundcurses.controllers.MainController(
+    input_resolver = user_input.UserInputMapper()
+    main_controller = controllers.MainController(
         main_view,
         input_resolver,
         main_model)
