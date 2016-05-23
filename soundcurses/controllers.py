@@ -30,7 +30,6 @@ class MainController:
         while self._application_is_running:
             input_string = self._view.sample_input()
             action = self._input_mapper.resolve_input(input_string)
-            self._handle_input(input_string)
             self._current_state.handle_input(action)
             self._current_state.run_interval_tasks()
             self._render_view()
@@ -40,17 +39,6 @@ class MainController:
         timestmap_last_render = math.trunc(self._view.last_render_timestamp)
         if timestamp_new - timestmap_last_render >= self._view_render_interval:
             self._view.render()
-
-    def _handle_input(self, input_string):
-        """
-        Begin necessary tasks in reaction to user input.
-        """
-        if input_string == 'q':
-            self.stop_application()
-        elif input_string == 'u':
-            username = self._view.prompt_username()
-            self._view.show_loading_animation()
-            # user = self._model.resolve_username(username)
 
     def set_state(self, state):
         """

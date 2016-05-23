@@ -19,16 +19,17 @@ class BaseState(metaclass=abc.ABCMeta):
     An ABC for use in a basic state pattern implementation.
 
     """
-    def __init__(self, context, state_factory):
+    def __init__(self, controller, state_factory):
         """
         Constructor.
 
         Args:
-            context: The state pattern context object.
+            controller: The state pattern context object. Currently this is the
+                main controller object.
             state_factory (StateFactory): From local states module.
 
         """
-        self._context = context
+        self._controller = controller
         self._state_factory = state_factory
 
     @abc.abstractmethod
@@ -79,8 +80,12 @@ class NoUsernameState(BaseState):
     Primarily loaded at application start and when user has entered invalid
     username.
 
+    Possible actions are:
+        quit
+        input username
+
     """
-    def __init__(self, context, state_factory, model, view):
+    def __init__(self, controller, state_factory, model, view):
         """
         Constructor. Override parent.
 
@@ -89,40 +94,38 @@ class NoUsernameState(BaseState):
             view (MainView): From local views module.
 
         """
-        super().__init__(context, state_factory)
+        super().__init__(controller, state_factory)
         self._model = model
         self._view = view
 
     def enter(self):
         """
-        Perform main tasks when state is loaded.
+        Override parent.
 
         """
         pass
 
     def exit(self):
         """
-        Perform tasks immediately before state is unloaded.
+        Override parent.
 
         """
         pass
 
     def handle_input(self, action):
         """
-        Perform tasks in response to user input.
-
-        Args:
-            action: A constant value from the local user input module.
+        Override parent.
 
         """
-        pass
+        if action == user_input.ACTION_QUIT:
+            self._controller.stop_application()
+        elif action == user_input.ACTION_ENTER_USERNAME:
+            username = self._view.prompt_username()
+            self._view.show_loading_animation()
 
     def run_interval_tasks(self):
         """
-        Run tasks that are required to be run on regular interval.
-
-        As long as the state remains loaded, this method will be called once per
-        main loop cycle. Do not depend on any specific execution interval.
+        Override parent.
 
         """
         pass
