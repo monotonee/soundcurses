@@ -26,19 +26,24 @@ class MainController:
         initial_state = state_factory.create_no_username(self)
         self.set_state(initial_state)
 
+    def _render_view(self):
+        """
+        Render the view on a specified interval.
+
+        """
+        timestamp_new = math.trunc(time.time())
+        timestmap_last_render = math.trunc(self._view.last_render_timestamp)
+        if timestamp_new - timestmap_last_render >= self._view_render_interval:
+            self._view.render()
+
     def _run_main_loop(self):
         while self._application_is_running:
             input_string = self._view.sample_input()
             action = self._input_mapper.resolve_input(input_string)
             self._current_state.handle_input(action)
             self._current_state.run_interval_tasks()
+            self._model.run_interval_tasks()
             self._render_view()
-
-    def _render_view(self):
-        timestamp_new = math.trunc(time.time())
-        timestmap_last_render = math.trunc(self._view.last_render_timestamp)
-        if timestamp_new - timestmap_last_render >= self._view_render_interval:
-            self._view.render()
 
     def set_state(self, state):
         """

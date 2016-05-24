@@ -28,7 +28,7 @@ setup(
     # Standard data
     name=  'soundcurses',
     version = '0.1.0',
-    packages = ['signalslot', 'soundcloud'],
+    packages = ['requests', 'signalslot', 'soundcloud'],
 
     # PyPI metadata
     author = 'monotonee',

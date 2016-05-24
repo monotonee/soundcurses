@@ -98,6 +98,16 @@ class NoUsernameState(BaseState):
         self._model = model
         self._view = view
 
+    def _prompt_username_callback(self, user, **kwargs):
+        self._view.hide_loading_animation()
+
+    def _prompt_username(self):
+        username = self._view.prompt_username()
+        self._view.show_loading_animation()
+        self._model.resolve_username(
+            username,
+            self._prompt_username_callback)
+
     def enter(self):
         """
         Override parent.
@@ -120,8 +130,7 @@ class NoUsernameState(BaseState):
         if action == user_input.ACTION_QUIT:
             self._controller.stop_application()
         elif action == user_input.ACTION_ENTER_USERNAME:
-            username = self._view.prompt_username()
-            self._view.show_loading_animation()
+            self._prompt_username()
 
     def run_interval_tasks(self):
         """

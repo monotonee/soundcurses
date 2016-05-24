@@ -39,8 +39,8 @@ class MainView:
         """
         Stop the loading animation and hide the modal window.
         """
-        self._modal_window.stop_loading_animation()
-        self._modal_window.hide()
+        self._window_modal.stop_loading_animation()
+        self._window_modal.hide()
 
     @property
     def last_render_timestamp(self):
