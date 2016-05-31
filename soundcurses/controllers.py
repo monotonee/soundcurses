@@ -20,7 +20,7 @@ class MainController:
         self._current_state = None
         self._input_mapper = input_mapper
         self._view = view
-        self._view_render_interval = 0.5
+        self._view_render_interval = 0.1
 
         initial_state = state_factory.create_no_username(self)
         self.set_state(initial_state)
@@ -30,8 +30,8 @@ class MainController:
         Render the view on a specified interval.
 
         """
-        timestamp_new = math.trunc(time.time())
-        timestmap_last_render = math.trunc(self._view.last_render_timestamp)
+        timestamp_new = time.time()
+        timestmap_last_render = self._view.last_render_timestamp
         if timestamp_new - timestmap_last_render >= self._view_render_interval:
             self._view.render()
 

@@ -81,7 +81,7 @@ class SoundcloudWrapper:
             # url=self._construct_permalink_url('/' + str(username)))
 
         import time
-        future = self._network_executor.submit(time.sleep, 5)
+        future = self._network_executor.submit(time.sleep, 3)
 
         return future
 
