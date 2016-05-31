@@ -6,6 +6,7 @@ TUI effects such as loading indicators.
 import abc
 import functools
 import itertools
+import time
 
 class AbstractAnimation(metaclass=abc.ABCMeta):
     """
@@ -85,6 +86,8 @@ class SimpleSpinner(AbstractAnimation):
         self._render_targets = []
         self._spinner_chars = ('/', '―', '\\', '|')
         self._spinner_chars_iterator = itertools.cycle(self._spinner_chars)
+        self._timestamp_last_update = 0.0
+        self._update_interval = 0.1
 
         self.active = False
 
@@ -96,13 +99,17 @@ class SimpleSpinner(AbstractAnimation):
         physical curses screen has completed a rendering pass.
 
         """
-        self._update_all_targets()
+        last_update = self._timestamp_last_update
+        last_render = self._screen.last_render_timestamp
+        if last_render - last_update >= self._update_interval:
+            self._update_all_targets()
 
     def _update_all_targets(self):
         """
         Render next spinner frame to all targets.
 
         """
+        self._timestamp_last_update = time.time()
         character = next(self._spinner_chars_iterator)
         for render in self._render_targets:
             render(character)
