@@ -11,7 +11,7 @@ class MainController:
 
     Implements a basic state pattern context to provide dynamic behavior change.
     """
-    def __init__(self, input_mapper, model, state_factory, view):
+    def __init__(self, input_mapper, state_factory, view):
         """
         Constructor.
 
@@ -19,7 +19,6 @@ class MainController:
         self._application_is_running = False
         self._current_state = None
         self._input_mapper = input_mapper
-        self._model = model
         self._view = view
         self._view_render_interval = 0.5
 
@@ -42,7 +41,6 @@ class MainController:
             action = self._input_mapper.resolve_input(input_string)
             self._current_state.handle_input(action)
             self._current_state.run_interval_tasks()
-            self._model.run_interval_tasks()
             self._render_view()
 
     def set_state(self, state):

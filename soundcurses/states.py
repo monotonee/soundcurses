@@ -5,6 +5,15 @@ This module defines the constituent parts of a basic finite state machine
 implemented with the state pattern. The main controller acts as the state
 context and switches state according to user interactions.
 
+Note that I have grudgingly allowed tigher coupling between the state objects
+and the controller. Previously, the state objects were only aware of a "context"
+interface but states need the ability to call controller-level functions such as
+stopping the application. Therefore, the state objects are now aware of the
+controller and its public interface. The other option was to pass in a command
+factory from which the state objects could create and execute commands such as
+"stop application". If many such commands are needed beyond the one or two, then
+the command factory will probably be implemented instead.
+
 I make an exception to local, relative imports here in order to import
 module-level constants.
 
@@ -35,7 +44,7 @@ class BaseState(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def enter(self):
         """
-        Perform main tasks when state is loaded.
+        Perform main tasks immediately after state is loaded.
 
         """
         pass
@@ -84,29 +93,36 @@ class NoUsernameState(BaseState):
         quit
         input username
 
+    Can transition to states:
+        username loaded
+
     """
-    def __init__(self, controller, state_factory, model, view):
+    def __init__(self, controller, state_factory, souncloud_wrapper, view):
         """
         Constructor. Override parent.
 
         Args:
-            model (MainModel): From local models module.
+            souncloud_wrapper (SoundcloudWrapper): From local models module.
             view (MainView): From local views module.
 
         """
         super().__init__(controller, state_factory)
-        self._model = model
+        self._future_resolve_username = None
+        self._souncloud_wrapper = souncloud_wrapper
         self._view = view
-
-    def _prompt_username_callback(self, user, **kwargs):
-        self._view.hide_loading_animation()
 
     def _prompt_username(self):
         username = self._view.prompt_username()
         self._view.show_loading_animation()
-        self._model.resolve_username(
-            username,
-            self._prompt_username_callback)
+        self._future_resolve_username = \
+            self._souncloud_wrapper.resolve_username(username)
+
+    def _verify_username(self):
+        """
+        Verify the results of a username resolution call.
+
+        """
+        self._view.hide_loading_animation()
 
     def enter(self):
         """
@@ -126,6 +142,8 @@ class NoUsernameState(BaseState):
         """
         Override parent.
 
+        user_input is a module namespace containing module-level constants.
+
         """
         if action == user_input.ACTION_QUIT:
             self._controller.stop_application()
@@ -137,24 +155,26 @@ class NoUsernameState(BaseState):
         Override parent.
 
         """
-        pass
+        if self._future_resolve_username \
+            and self._future_resolve_username.done():
+            self._verify_username()
 
 
 class StateFactory:
     """
-    Factory to hide creation details of state objects.
+    Factory to hide and centralize creation details of state objects.
 
     """
-    def __init__(self, model, view):
+    def __init__(self, souncloud_wrapper, view):
         """
         Constructor.
 
         Args:
-            model (MainModel): From local models module.
+            souncloud_wrapper (SoundcloudWrapper): From local models module.
             view (MainView): From local views module.
 
         """
-        self._model = model
+        self._souncloud_wrapper = souncloud_wrapper
         self._view = view
 
     def create_no_username(self, context):
@@ -165,4 +185,8 @@ class StateFactory:
             context: The state pattern context object.
 
         """
-        return NoUsernameState(context, self, self._model, self._view)
+        return NoUsernameState(
+            context,
+            self,
+            self._souncloud_wrapper,
+            self._view)

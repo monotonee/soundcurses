@@ -3,10 +3,9 @@
 """
 
 # Standard library imports.
+import concurrent.futures
 import curses
 import locale
-import queue
-import threading
 
 # Third-party imports.
 import requests
@@ -90,17 +89,6 @@ def main(stdscr):
         window_content,
         window_modal)
 
-    # The first queue is the network I/O thread's input queue.
-    # The second queue is the network I/O thread's output queue.
-    network_thread_input_queue = queue.Queue()
-    network_thread_output_queue = queue.Queue()
-
-    # Start network I/O thread.
-    network_thread = threading.Thread(
-        target=models.run_network_io,
-        args=(network_thread_input_queue, network_thread_output_queue),
-        daemon=True)
-
     # IMPORTANT: This soundcloud.Client instance is not to be touched.
     # It is accessed exclusively by a separate thread. Its existence in the main
     # thread is solely to allow the composition of function partials which are
@@ -114,18 +102,18 @@ def main(stdscr):
         use_ssl=True)
     soundcloud_client.HTTP_ERROR = requests.exceptions.HTTPError
 
+    network_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
     # Compose model.
-    main_model = models.MainModel(
+    souncloud_wrapper = models.SoundcloudWrapper(
         soundcloud_client,
-        network_thread_input_queue,
-        network_thread_output_queue)
+        network_executor)
 
     # Compose controllers.
-    state_factory = states.StateFactory(main_model, main_view)
+    state_factory = states.StateFactory(souncloud_wrapper, main_view)
     input_mapper = user_input.UserInputMapper()
     main_controller = controllers.MainController(
         input_mapper,
-        main_model,
         state_factory,
         main_view)
 
