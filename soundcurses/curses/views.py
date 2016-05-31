@@ -38,6 +38,7 @@ class MainView:
     def hide_loading_animation(self):
         """
         Stop the loading animation and hide the modal window.
+
         """
         self._window_modal.stop_loading_animation()
         self._window_modal.hide()

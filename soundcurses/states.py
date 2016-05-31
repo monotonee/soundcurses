@@ -123,6 +123,7 @@ class NoUsernameState(BaseState):
 
         """
         self._view.hide_loading_animation()
+        self._future_resolve_username = None
 
     def enter(self):
         """

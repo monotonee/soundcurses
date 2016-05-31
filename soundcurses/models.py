@@ -75,10 +75,13 @@ class SoundcloudWrapper:
         See: https://developers.soundcloud.com/docs/api/reference#resolve
 
         """
-        future = self._network_executor.submit(
-            self._soundcloud_client.get,
-            '/resolve',
-            url=self._construct_permalink_url('/' + str(username)))
+        # future = self._network_executor.submit(
+            # self._soundcloud_client.get,
+            # '/resolve',
+            # url=self._construct_permalink_url('/' + str(username)))
+
+        import time
+        future = self._network_executor.submit(time.sleep, 5)
 
         return future
 

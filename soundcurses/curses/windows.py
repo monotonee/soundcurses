@@ -31,6 +31,7 @@ class CursesWindow:
             render layer will be rendered in arbitrary order. Attribute is
             public so that callers can "reset" _render_layer_current through
             render_layer property if needed.
+
         """
 
         # Declare instance attributes.
@@ -301,6 +302,7 @@ class ModalWindow(CursesWindow):
     def stop_loading_animation(self):
         """
         Disable the animation and clear the window.
+
         """
         self._current_animation.stop()
         self.erase()

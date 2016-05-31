@@ -64,8 +64,11 @@ class CursesScreen:
             window.touchwin()
 
     def _handle_window_render_layer_change(self, window, delta, **kwargs):
-        """ Designed as a slot to the windows' signals indiciating a render
-        layer change.
+        """
+        Respond to a change in a given window's render layer value.
+
+        Designed as a slot to the windows' signals indiciating a render layer
+        change.
 
         """
         # If window is in render queue, it must have been touched.
@@ -190,10 +193,6 @@ class WindowRenderQueue:
         return itertools.chain(*self._queue.values())
 
         """
-        # sorted_list = []
-        # for key in sorted(self._queue.keys()):
-            # sorted_list.append(self._queue[key])
-        # return itertools.chain.from_iterable(sorted_list)
         return itertools.chain(*self._queue.values())
 
     def add(self, window):
@@ -212,7 +211,7 @@ class WindowRenderQueue:
     def remove(self, window):
         """ Remove a window from the queue if found.
 
-        Will not throw an exception of the window was not present in the queue.
+        Will not throw an exception if the window was not present in the queue.
         To avoid modifying data structure during iteration, keys marked for
         deletion are saved and applied after iteration is complete. I'm sure
         there's a more elegant way to do this.
