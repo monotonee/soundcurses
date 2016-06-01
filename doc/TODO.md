@@ -17,5 +17,11 @@ Use PEP8/Pythonic style compliance checker (PyLint, flake8?)
 Detect terminal color support and use color pallette if available.
 Create Makefile with installation, tests, etc.
 Before launch, update dependencies, test, and re-freeze.
-Reevaluate produence of storing locale and char encoding in curses wrapper
+Reevaluate prudence of storing locale and char encoding in curses wrapper
 Write argument "type" checks using method and attribute presence (duck typing)?
+alphabetize module entities in module files
+Make state factory use object pool?
+Reduce coupling between state objects and application components by using command objects?
+Remove the MainController's depenence on the StateFactory?
+Add more descriptive errors to soundcloud wrapper for various API conditions.
+    Ex: One error for unresolved username, another for actual HTTP errors.
