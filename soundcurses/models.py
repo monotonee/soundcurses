@@ -33,13 +33,19 @@ class SoundcloudWrapper:
             assumed to be non-thread-safe. Do not actually call any methods
             on the Client in this class. Leave execution to the recipient
             of objects pushed into the output_queue.
-        _soundcloud_domain_name (string):
+        _soundcloud_domain_name (string): The SoundCloud domain name.
+
+        signal_current_tracks (signalslot.Signal): Indicates that current track
+            set has been changed.
+        signal_current_user (signalslot.Signal): Indicates that current user has
+            been changed.
 
     """
 
     _SC_DOMAIN_NAME = 'soundcloud.com'
 
-    def __init__(self, soundcloud_client, network_executor):
+    def __init__(self, soundcloud_client, network_executor,
+        signal_current_user, signal_current_track_set):
         """
         Constructor.
 
@@ -51,8 +57,12 @@ class SoundcloudWrapper:
                 of objects pushed into the output_queue.
 
         """
+        self._current_user = None
         self._network_executor = network_executor
         self._soundcloud_client = soundcloud_client
+
+        self.signal_change_current_track_set = signal_current_track_set
+        self.signal_change_current_user = signal_current_user
 
     def _construct_permalink_url(self, path):
         """ Given a soundcloud.com URL path, returns a string containing
@@ -67,23 +77,50 @@ class SoundcloudWrapper:
             + self._SC_DOMAIN_NAME \
             + path
 
-    def resolve_username(self, username):
+    @property
+    def current_user(self):
+        return self._current_user
+
+    @current_user.setter
+    def current_user(self, user):
+        self._current_user = user
+        self.signal_change_current_user.emit()
+
+    def get_user_by_username(self, username):
         """
-        Contacts the SoundCloud API in an attempt to resolve a username string
+        Contact the SoundCloud API and attempt to resolve a username string
         to a SoundCloud API user ID.
 
-        See: https://developers.soundcloud.com/docs/api/reference#resolve
+        By default, the soundcloud library follows any HTTP redirects to a
+        resolved user and will return a user data object. The user data object
+        is documented in the SoundCloud API Reference.
+
+        If a user cannot be resolved from the username, soundcloud lets its
+        underlying HTTP library, "request", leak through the abstraction by
+        allowing its HTTPException bubble.
+
+        See:
+            https://developers.soundcloud.com/docs/api/reference#resolve
+            https://developers.soundcloud.com/docs/api/reference#users
 
         """
-        # future = self._network_executor.submit(
-            # self._soundcloud_client.get,
-            # '/resolve',
-            # url=self._construct_permalink_url('/' + str(username)))
+        future = self._network_executor.submit(
+            self._soundcloud_client.get,
+            '/resolve',
+            url=self._construct_permalink_url('/' + str(username)))
 
-        import time
-        future = self._network_executor.submit(time.sleep, 3)
+        # import time
+        # future = self._network_executor.submit(time.sleep, 3)
 
         return future
+
+    @property
+    def HTTP_ERROR(self):
+        """
+        Get the wrapper's constant HTTP exception property.
+
+        """
+        return self._soundcloud_wrapper.HTTP_ERROR
 
 
 

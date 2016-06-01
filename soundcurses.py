@@ -80,15 +80,6 @@ def main(stdscr):
     # Compose input source.
     input_source = components.InputSource(window_stdscr)
 
-    # Compose view(s).
-    main_view = views.MainView(
-        input_source,
-        curses_screen,
-        window_header,
-        window_nav,
-        window_content,
-        window_modal)
-
     # IMPORTANT: This soundcloud.Client instance is not to be touched.
     # It is accessed exclusively by a separate thread. Its existence in the main
     # thread is solely to allow the composition of function partials which are
@@ -102,12 +93,23 @@ def main(stdscr):
         use_ssl=True)
     soundcloud_client.HTTP_ERROR = requests.exceptions.HTTPError
 
+    # Compose "model".
     network_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-
-    # Compose model.
     souncloud_wrapper = models.SoundcloudWrapper(
         soundcloud_client,
-        network_executor)
+        network_executor,
+        signalslot.Signal(),
+        signalslot.Signal())
+
+    # Compose view(s).
+    main_view = views.MainView(
+        input_source,
+        curses_screen,
+        souncloud_wrapper,
+        window_header,
+        window_nav,
+        window_content,
+        window_modal)
 
     # Compose controllers.
     state_factory = states.StateFactory(souncloud_wrapper, main_view)

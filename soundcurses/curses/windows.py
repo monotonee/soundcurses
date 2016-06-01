@@ -140,6 +140,8 @@ class HeaderWindow(CursesWindow):
         super().__init__(curses, window, signal_render_layer_change)
         self._configure()
 
+        self._username = None
+
     def _configure(self):
         """
         Configure window properties.
@@ -151,6 +153,14 @@ class HeaderWindow(CursesWindow):
         self.render_layer_default = self.RENDER_LAYER_BASE + 1
         self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
+    @property
+    def username(self):
+        return self._username
+
+    @username.setter
+    def username(self, username):
+        self._username = username
+        self._window.addstr(1, 1, username)
 
 class NavWindow(CursesWindow):
     """ A curses window that manages the navigation region. The navigation

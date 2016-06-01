@@ -115,15 +115,27 @@ class NoUsernameState(BaseState):
         username = self._view.prompt_username()
         self._view.show_loading_animation()
         self._future_resolve_username = \
-            self._souncloud_wrapper.resolve_username(username)
+            self._souncloud_wrapper.get_user_by_username(username)
 
     def _verify_username(self):
         """
         Verify the results of a username resolution call.
 
         """
-        self._view.hide_loading_animation()
+        # If self._future_resolve_username is not "reset", infinite loop.
+        future = self._future_resolve_username
         self._future_resolve_username = None
+
+        # The self._souncloud_wrapper.HTTP_ERROR indicates that
+        if future.exception():
+            if isinstance(future.exception(), self._souncloud_wrapper.HTTP_ERROR):
+                self._prompt_username()
+            else:
+                raise future.exception()
+        else:
+            user = future.result()
+            self._souncloud_wrapper.current_user = user
+            self._view.hide_loading_animation()
 
     def enter(self):
         """

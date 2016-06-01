@@ -12,7 +12,7 @@ class MainView:
 
     """
 
-    def __init__(self, input_source, screen,
+    def __init__(self, input_source, screen, model,
         window_header, window_nav, window_content, window_modal):
         """ Constructor.
 
@@ -23,11 +23,38 @@ class MainView:
 
         """
         self._input_source = input_source
+        self._model = model
         self._screen = screen
         self._window_content = window_content
         self._window_header = window_header
         self._window_modal = window_modal
         self._window_nav = window_nav
+
+        self._subscribe_to_model()
+
+    def _subscribe_to_model(self):
+        """
+        Connect to the model object's events.
+
+        """
+        self._model.signal_change_current_track_set.connect(
+            self._handle_current_track_set_change)
+        self._model.signal_change_current_user.connect(
+            self._handle_current_user_change)
+
+    def _handle_current_user_change(self, **kwargs):
+        """
+        Respond to an update of the current user data.
+
+        """
+        self._window_header.username = self._model.current_user.username
+
+    def _handle_current_track_set_change(self, **kwargs):
+        """
+        Respond to an update of the current track set data.
+
+        """
+        pass
 
     def destroy(self):
         """
