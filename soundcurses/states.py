@@ -14,25 +14,22 @@ factory from which the state objects could create and execute commands such as
 "stop application". If many such commands are needed beyond the one or two, then
 the command factory will probably be implemented instead.
 
-I make an exception to local, relative imports here in order to import
-module-level constants.
-
 """
 
 import abc
-
-from . import user_input
 
 class BaseState(metaclass=abc.ABCMeta):
     """
     An ABC for use in a basic state pattern implementation.
 
     """
-    def __init__(self, controller, state_factory):
+    def __init__(self, input_mapper, controller, state_factory):
         """
         Constructor.
 
         Args:
+            input_mapper (UserInputMapper): Necessary for the use of user action
+                constants.
             controller: The state pattern context object. Currently this is the
                 main controller object.
             state_factory (StateFactory): From local states module.
@@ -40,6 +37,7 @@ class BaseState(metaclass=abc.ABCMeta):
         """
         self._controller = controller
         self._state_factory = state_factory
+        self._input_mapper = input_mapper
 
     @abc.abstractmethod
     def enter(self):
@@ -97,16 +95,19 @@ class NoUsernameState(BaseState):
         username loaded
 
     """
-    def __init__(self, controller, state_factory, souncloud_wrapper, view):
+    def __init__(self, input_mapper, controller, state_factory,
+        souncloud_wrapper, view):
         """
         Constructor. Override parent.
 
         Args:
             souncloud_wrapper (SoundcloudWrapper): From local models module.
-            view (MainView): From local views module.
+                Necessary for exception checking.
+            view (MainView): From local views module. Necessary in order to
+                start and stop loading animation.
 
         """
-        super().__init__(controller, state_factory)
+        super().__init__(input_mapper, controller, state_factory)
         self._future_resolve_username = None
         self._souncloud_wrapper = souncloud_wrapper
         self._view = view
@@ -158,9 +159,9 @@ class NoUsernameState(BaseState):
         user_input is a module namespace containing module-level constants.
 
         """
-        if action == user_input.ACTION_QUIT:
+        if action == self._input_mapper.ACTION_QUIT:
             self._controller.stop_application()
-        elif action == user_input.ACTION_ENTER_USERNAME:
+        elif action == self._input_mapper.ACTION_ENTER_USERNAME:
             self._prompt_username()
 
     def run_interval_tasks(self):
@@ -178,15 +179,17 @@ class StateFactory:
     Factory to hide and centralize creation details of state objects.
 
     """
-    def __init__(self, souncloud_wrapper, view):
+    def __init__(self, input_mapper, souncloud_wrapper, view):
         """
         Constructor.
 
         Args:
+            input_mapper (UserInputMapper)
             souncloud_wrapper (SoundcloudWrapper): From local models module.
             view (MainView): From local views module.
 
         """
+        self._input_mapper = input_mapper
         self._souncloud_wrapper = souncloud_wrapper
         self._view = view
 
@@ -199,6 +202,7 @@ class StateFactory:
 
         """
         return NoUsernameState(
+            self._input_mapper,
             context,
             self,
             self._souncloud_wrapper,

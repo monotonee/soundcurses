@@ -3,9 +3,6 @@ This module defines application actions and provides input mapping functions.
 
 """
 
-ACTION_ENTER_USERNAME = 'Enter username'
-ACTION_QUIT = 'Quit'
-
 class UserInputMapper:
     """
     Responsible for resolving raw user input to application actions.
@@ -19,6 +16,10 @@ class UserInputMapper:
     Currently key mapping is constrained to one-to-one relationships.
 
     """
+
+    ACTION_ENTER_USERNAME = 'Enter username'
+    ACTION_QUIT = 'Quit'
+
     def __init__(self):
         """
         Establish instance input-to-action mapping.
@@ -34,8 +35,8 @@ class UserInputMapper:
 
         Listed in ascending alphanumerical order by key.
         """
-        self._keymap['q'] = ACTION_QUIT
-        self._keymap['u'] = ACTION_ENTER_USERNAME
+        self._keymap['q'] = self.ACTION_QUIT
+        self._keymap['u'] = self.ACTION_ENTER_USERNAME
 
     def resolve_input(self, input_string):
         """

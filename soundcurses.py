@@ -26,27 +26,27 @@ def main(stdscr):
     curses_wrapper = components.CursesWrapper(curses, locale)
 
     # Compose curses window wrappers.
+    curses_string_factory = windows.CursesStringFactory(curses_wrapper)
     signal_window_render_layer_changed = signalslot.Signal(
         args=['window', 'delta'])
     window_stdscr = windows.StdscrWindow(
-        curses_wrapper,
         stdscr,
-        signal_window_render_layer_changed)
+        signal_window_render_layer_changed,
+        curses_wrapper)
     window_header = windows.HeaderWindow(
-        curses_wrapper,
         curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0),
         signal_window_render_layer_changed)
     window_nav = windows.NavWindow(
-        curses_wrapper,
         curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0),
-        signal_window_render_layer_changed)
+        signal_window_render_layer_changed,
+        curses_string_factory)
     window_content = windows.ContentWindow(
-        curses_wrapper,
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
             curses_wrapper.COLS,
             6, 0),
-        signal_window_render_layer_changed)
+        signal_window_render_layer_changed,
+        curses_wrapper)
 
     # Compose screen.
     signal_rendered = signalslot.Signal()
@@ -67,13 +67,14 @@ def main(stdscr):
     window_modal_dim_y = round(curses_wrapper.LINES * 0.4)
     window_modal_dim_x = round(curses_wrapper.COLS * 0.4)
     window_modal = windows.ModalWindow(
-        curses_wrapper,
         curses_wrapper.newwin(
             window_modal_dim_y,
             window_modal_dim_x,
             round((curses_wrapper.LINES - window_modal_dim_y) / 2),
             round((curses_wrapper.COLS - window_modal_dim_x) / 2)),
         signal_window_render_layer_changed,
+        curses_wrapper,
+        curses_string_factory,
         simple_spinner_animation)
     curses_screen.add_window(window_modal)
 
@@ -112,8 +113,11 @@ def main(stdscr):
         window_modal)
 
     # Compose controllers.
-    state_factory = states.StateFactory(souncloud_wrapper, main_view)
     input_mapper = user_input.UserInputMapper()
+    state_factory = states.StateFactory(
+        input_mapper,
+        souncloud_wrapper,
+        main_view)
     main_controller = controllers.MainController(
         input_mapper,
         state_factory,

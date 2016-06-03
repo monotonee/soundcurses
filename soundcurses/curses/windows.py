@@ -3,6 +3,10 @@ and to be passed to higher-level classes.
 
 """
 
+import collections
+import itertools
+import math
+
 class CursesWindow:
     """ Defines a base class that encapsulates a layout region, implemented
     using a curses window or panel.
@@ -20,11 +24,13 @@ class CursesWindow:
     RENDER_LAYER_HIDDEN = 0
     RENDER_LAYER_BASE = 1
 
-    def __init__(self, curses, window, signal_render_layer_change):
+    def __init__(self, window, signal_render_layer_change):
         """
         Constructor.
 
-        _curses - The curses library interface.
+        _curses - The curses library interface. Necessary for many window
+            config tasks such as the utilization of constants, toggling
+            curses.echo()/curses.noecho(), etc.
         _window - A raw curses window object.
         render_layer_default - Ranges from 0 (lowest) to integer n (higher).
             Layers are rendered from lowest to highest. Windows on the same
@@ -35,7 +41,6 @@ class CursesWindow:
         """
 
         # Declare instance attributes.
-        self._curses = curses
         self._render_layer_current = self.RENDER_LAYER_BASE
         self._window = window
         self.render_layer_default = self.RENDER_LAYER_BASE
@@ -104,8 +109,11 @@ class StdscrWindow(CursesWindow):
     screen since no content is rendered to stdscr.
 
     """
-    def __init__(self, curses, window, signal_render_layer_change):
-        super().__init__(curses, window, signal_render_layer_change)
+    def __init__(self, window, signal_render_layer_change, curses):
+        super().__init__(window, signal_render_layer_change)
+
+        self._curses = curses
+
         self._configure()
 
     def _configure(self):
@@ -136,11 +144,12 @@ class HeaderWindow(CursesWindow):
     mostly a static data display.
 
     """
-    def __init__(self, curses, window, signal_render_layer_change):
-        super().__init__(curses, window, signal_render_layer_change)
-        self._configure()
+    def __init__(self, window, signal_render_layer_change):
+        super().__init__(window, signal_render_layer_change)
 
         self._username = None
+
+        self._configure()
 
     def _configure(self):
         """
@@ -162,16 +171,39 @@ class HeaderWindow(CursesWindow):
         self._username = username
         self._window.addstr(1, 1, username)
 
+
 class NavWindow(CursesWindow):
-    """ A curses window that manages the navigation region. The navigation
-    region displays a SoundCloud user's available categories within which tracks
-    may be present. Examples may include "tracks," "playlists," or "likes." The
-    user may use the keyboard to select categories for track listings.
+    """
+    A curses window that manages the navigation region.
+
+    Generally, since this application is largely based on the SoundCloud
+    user, each navigation link is a user sub-resource. Examples include
+    the current SoundCloud user's tracks, playlists, favorites, etc.
+
+    The SoundCloud user subresource categories are pretty static. Therefore,
+    this window will be hard-coded with a preset set of available menu items.
+    The calling code will simply activate or deactivate them as necessary.
 
     """
-    def __init__(self, curses, window, signal_render_layer_change):
-        super().__init__(curses, window, signal_render_layer_change)
+
+    NAV_ITEM_01_TRACKS = 'TRACKS'
+    NAV_ITEM_02_PLAYLISTS = 'PLAYLISTS'
+    NAV_ITEM_03_FAVORITES = 'FAVORITES'
+    NAV_ITEM_04_FOLLOWING = 'FOLLOWING'
+    NAV_ITEM_05_FOLLOWERS = 'FOLLOWERS'
+
+    def __init__(self, window, signal_render_layer_change,
+        curses_string_factory):
+        super().__init__(window, signal_render_layer_change)
+
+        self._currently_highlighted_item = None
+        self._curses_string_factory = curses_string_factory
+        self._highlighted_item_cycle = None
+        self._nav_items = collections.OrderedDict()
+
         self._configure()
+        self._init_items()
+        self._init_highlighted_item()
 
     def _configure(self):
         """
@@ -184,6 +216,76 @@ class NavWindow(CursesWindow):
         self.render_layer_default = self.RENDER_LAYER_BASE + 1
         self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
+    def _init_items(self):
+        """
+        Write nav items to the nav window and select first highlighted item.
+
+        Dynamically enumerates the NAV_ITEM_* constants and places them in a
+        dictionary. Dict keys are nav item constant values, dict values are the
+        CursesString objects of the character strings written to window.
+
+        After writing, selects the nav item to be highlighted by default.
+
+        Called in constructor before the highlighted item initializer.
+
+        """
+        # Enumerate nav items. Do not yet create strings since coords are not
+        # yet known and are dependent upon the number of nav items and their
+        # string lengths.
+        total_char_count = 0
+        for attribute in dir(self):
+            if attribute.startswith('NAV_ITEM_'):
+                nav_item_display_string = getattr(self, attribute)
+                self._nav_items[nav_item_display_string] = None
+                total_char_count += len(nav_item_display_string)
+
+        # Calculate initial nav item string spacing within window.
+        # For now, ignore edge case window sizes such as "very small."
+        # TEMPORARILY assume that there are more available cols than characters.
+        # Remove two cols from available cols for edge spacing/border.
+        spacing_cols = math.floor(
+            (self.cols - 2 - total_char_count) / (len(self._nav_items) - 1))
+
+        # Create nav item string objects with spaced coords and write to window.
+        # Place first nav item then place following items in a loop since first
+        # item has no left-hand spacing.
+        nav_item_iter =  iter(self._nav_items.keys())
+        first_item = next(nav_item_iter)
+        first_string = self._curses_string_factory.create_string(
+            self._window, first_item, 1, 1)
+        first_string.write()
+        self._nav_items[first_item] = first_string
+
+        # Write the remainder of the nav items to window.
+        cols_offset = 1 + len(first_string) + spacing_cols
+        for nav_item in nav_item_iter:
+            nav_string = self._curses_string_factory.create_string(
+                self._window, nav_item, 1, cols_offset)
+            nav_string.write()
+            self._nav_items[nav_item] = nav_string
+            cols_offset += len(nav_string) + spacing_cols
+
+    def _init_highlighted_item(self):
+        """
+        Initialize the highlight iterator and highlight the default nav item.
+
+        Called in constructor after the nav item initializer.
+
+        """
+        self._highlighted_item_cycle = itertools.cycle(
+            iter(self._nav_items.values()))
+        self._currently_highlighted_item = next(self._highlighted_item_cycle)
+        self._currently_highlighted_item.style_reverse()
+
+    def highlight_next(self):
+        """
+        Highlight the next navigation item.
+
+        """
+        self._currently_highlighted_item.style_normal()
+        self._currently_highlighted_item = next(self._highlighted_item_cycle)
+        self._currently_highlighted_item.style_reverse()
+
 
 class ContentWindow(CursesWindow):
     """ A curses window that manages the content region. The content region's
@@ -191,8 +293,11 @@ class ContentWindow(CursesWindow):
     which may be selected and played.
 
     """
-    def __init__(self, curses, window, signal_render_layer_change):
-        super().__init__(curses, window, signal_render_layer_change)
+    def __init__(self, window, signal_render_layer_change, curses):
+        super().__init__(window, signal_render_layer_change)
+
+        self._curses = curses
+
         self._configure()
 
     def _configure(self):
@@ -216,13 +321,16 @@ class ModalWindow(CursesWindow):
     Note that window.addstr() and/or window.getstr() contains implicit refresh.
 
     """
-    def __init__(self, curses, window, signal_render_layer_change, animation):
-        super().__init__(curses, window, signal_render_layer_change)
-
-        self._configure()
+    def __init__(self, window, signal_render_layer_change,
+        curses, curses_string_factory, animation):
+        super().__init__(window, signal_render_layer_change)
 
         self._current_animation = animation
         self._current_spinner = None
+        self._curses = curses
+        self._curses_string_factory = curses_string_factory
+
+        self._configure()
 
     def _configure(self):
         """
@@ -236,7 +344,10 @@ class ModalWindow(CursesWindow):
         self._render_layer_current = self.RENDER_LAYER_HIDDEN
 
     def _configure_style(self):
-        """ Internal method for drawing borders and other decoration. Separated
+        """
+        Reinitialize window styles tht can be cleared by calls to window.erase.
+
+        Internal method for drawing borders and other decoration. Separated
         so that borders, for instance, can be redrawn after calls to
         window.erase() while style configuration is centralized.
 
@@ -270,12 +381,10 @@ class ModalWindow(CursesWindow):
         if self._render_layer_current == self.RENDER_LAYER_HIDDEN:
             raise RuntimeError('Cannot issue prompt while window is hidden.')
 
-        prompt_string_length = len(prompt_string)
-        window_dimensions = self._window.getmaxyx()
-
         # Validate prompt string. Subtract two from columns to account for
         # window border.
-        if prompt_string_length > window_dimensions[1] - 2:
+        prompt_string_length = len(prompt_string)
+        if prompt_string_length > self.cols - 2:
             raise ValueError('Prompt string will not fit in window.')
 
         # Draw prompt string. Prompt string and input line span two window lines
@@ -283,11 +392,15 @@ class ModalWindow(CursesWindow):
         # centered in modal, therefore, both lines must be shifted upward on y
         # axis by two lines.
         self.erase()
-        prompt_string_coord_y = round((window_dimensions[0] - 2) / 2)
+        prompt_string_coord_y = round((self.lines - 2) / 2)
         prompt_string_coord_x = round(
-            (window_dimensions[1] - prompt_string_length) / 2)
-        self._window.addstr(
-            prompt_string_coord_y, prompt_string_coord_x, prompt_string)
+            (self.cols - prompt_string_length) / 2)
+        curses_prompt_string = self._curses_string_factory.create_string(
+            self._window,
+            prompt_string,
+            prompt_string_coord_y,
+            prompt_string_coord_x)
+        curses_prompt_string.write()
 
         # Start input polling. User's input will be displayed directly below
         # prompt.
@@ -316,3 +429,177 @@ class ModalWindow(CursesWindow):
         """
         self._current_animation.stop()
         self.erase()
+
+
+class CursesString:
+    """
+    A class that maintains string and coordinate information.
+
+    Facilitates the display of characters within a curses window. Collects
+    a displayed string's coordinates within a window and makes operations such
+    as moving, erasing, and overwriting strings easier.
+
+    """
+    def __init__(self, curses, window, string, y, x, attr=0):
+        """
+        Constructor.
+
+        Args:
+            curses: A curses library module namespace or the CursesWrapper.
+                Necessary for the use of string styling contstants.
+            window (curses.newwin): A raw curses window, although not
+                necessarily an abstracted soundcurses.curses.CursesWindow. The
+                extra interface isn't needed but passing one in won't affect
+                operations.
+            string: (string)
+            y (int): The y-coord at which to write string.
+            x (int): The x-coord at which to write string.
+            attr (int): A curses attribute integer. Each bit represents a style.
+                Ex: curses.A_BOLD
+
+        Raises:
+            ValueError
+        """
+        # Validation. Ensure y and x do not exceed window bounds.
+        y = int(y)
+        x = int(x)
+        window_dimensions = window.getmaxyx()
+        if y > window_dimensions[0] or x > window_dimensions[1]:
+            raise ValueError('String coords exceed window bounds.')
+        self._coord_x = x
+        self._coord_y = y
+        self._curses = curses
+        self._is_written = False
+        self._string = str(string)
+        self._window = window
+
+        self.attr = attr
+
+    def __len__(self):
+        return len(self._string)
+
+    @property
+    def attr(self):
+        return self._attr
+
+    @attr.setter
+    def attr(self, attr):
+        """
+        Set string curses attributes.
+
+        If string has been written, erase and rewrite. Overwrite current string
+        attributes if any.
+
+        """
+        self._attr = int(attr)
+        if self._is_written:
+            self._window.chgat(
+                self._coord_y,
+                self._coord_x,
+                len(self),
+                self._attr)
+
+    def erase(self):
+        """
+        Overwrite string with blank chars.
+
+        """
+        empty_string = ''.ljust(len(self))
+        self._window.addstr(self._coord_y, self._coord_x, empty_string)
+        self._is_written = False
+
+    def move(self, y, x):
+        """
+        Change coords of string.
+
+        If string is currently written, erase and rewrite in new location.
+
+        """
+        y = int(y)
+        x = int(x)
+        if self._is_written:
+            # erase() needs old coords, write() needs new ones.
+            self.erase()
+            self._coord_y = y
+            self._coord_x = x
+            self.write()
+        else:
+            self._coord_y = y
+            self._coord_x = x
+
+    def style_bold(self):
+        """
+        Set the string attribute to bold style.
+
+        Overwrite current string attributes if any.
+
+        """
+        self.attr = self._curses.A_BOLD
+
+    def style_dim(self):
+        """
+        Set the string attribute to bold style.
+
+        Overwrite current string attributes if any.
+
+        """
+        self.attr = self._curses.A_DIM
+
+    def style_normal(self):
+        """
+        Set the string attribute to no style.
+
+        Overwrite current string attributes if any.
+
+        """
+        self.attr = self._curses.A_NORMAL
+
+    def style_reverse(self):
+        """
+        Set the string attribute to reverse style.
+
+        Overwrite current string attributes if any.
+
+        """
+        self.attr = self._curses.A_REVERSE
+
+    @property
+    def value(self):
+        """
+        Return the internal string's value.
+
+        """
+        return self._string
+
+    def write(self):
+        """
+        Write the string to the window.
+
+        """
+        self._window.addstr(
+            self._coord_y,
+            self._coord_x,
+            self._string,
+            self._attr)
+        self._is_written = True
+
+    @property
+    def x(self):
+        return self._coord_x
+
+    @property
+    def y(self):
+        return self._coord_y
+
+
+class CursesStringFactory:
+    """
+    Class to hide creation of CursesString classes at runtime.
+
+    """
+    def __init__(self, curses):
+        self._curses = curses
+
+    def create_string(self, window, string, y, x, attr=0):
+        return CursesString(self._curses, window, string, y, x, attr)
+
