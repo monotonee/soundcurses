@@ -120,7 +120,7 @@ class SoundcloudWrapper:
         Get the wrapper's constant HTTP exception property.
 
         """
-        return self._soundcloud_wrapper.HTTP_ERROR
+        return self._soundcloud_client.HTTP_ERROR
 
 
 

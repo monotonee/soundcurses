@@ -70,6 +70,10 @@ class MainView:
         self._window_modal.stop_loading_animation()
         self._window_modal.hide()
 
+    def hide_message(self):
+        self._window_modal.erase()
+        self._window_modal.hide()
+
     @property
     def last_render_timestamp(self):
         return self._screen.last_render_timestamp
@@ -102,4 +106,12 @@ class MainView:
 
         """
         self._window_modal.start_loading_animation()
+        self._window_modal.show()
+
+    def show_message(self, message):
+        """
+        Display a message in a modal window.
+
+        """
+        self._window_modal.message(message)
         self._window_modal.show()

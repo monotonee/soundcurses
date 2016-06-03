@@ -332,6 +332,25 @@ class ModalWindow(CursesWindow):
 
         self._configure()
 
+    def _get_centered_coords(self, string):
+        """
+        Return a tuple of coordinates (y, x) that will place given string at
+        center of window.
+
+        Args:
+            string (str): A single-line string.
+
+        Raises:
+            ValueError: If string is too long for window dimensions.
+
+        """
+        if len(string) > self.cols - 2:
+            raise ValueError('String lenght exceeds window bounds')
+
+        coord_x = round((self.cols - len(string)) / 2)
+        coord_y = round((self.lines - 1) / 2)
+        return (coord_y, coord_x)
+
     def _configure(self):
         """
         Configure window properties.
@@ -361,6 +380,23 @@ class ModalWindow(CursesWindow):
         self._window.erase()
         self._configure_style()
 
+    def message(self, string):
+        """
+        Display a blank modal window save for a string of text characters.
+
+        Currently, text string must not occupy more columns than those that are
+        available in the window's dimensions.
+
+        Raises:
+            ValueError: If text string is too long for window dimensions.
+
+        """
+        self.erase()
+        coord_y, coord_x = self._get_centered_coords(string)
+        string_object = self._curses_string_factory.create_string(
+            self, string, coord_y, coord_x)
+        string_object.write()
+
     def prompt(self, prompt_string):
         """ Clears window and displays a prompt for input to the user. Returns
         the entered string. Currently, the prompt string is only a single line
@@ -385,16 +421,15 @@ class ModalWindow(CursesWindow):
         # window border.
         prompt_string_length = len(prompt_string)
         if prompt_string_length > self.cols - 2:
-            raise ValueError('Prompt string will not fit in window.')
+            raise ValueError('Prompt string exceeds window bounds.')
 
         # Draw prompt string. Prompt string and input line span two window lines
         # in total. In order for both prompt string and input line to appear
         # centered in modal, therefore, both lines must be shifted upward on y
         # axis by two lines.
         self.erase()
-        prompt_string_coord_y = round((self.lines - 2) / 2)
-        prompt_string_coord_x = round(
-            (self.cols - prompt_string_length) / 2)
+        prompt_string_coord_y, prompt_string_coord_x = \
+            self._get_centered_coords(prompt_string)
         curses_prompt_string = self._curses_string_factory.create_string(
             self._window,
             prompt_string,

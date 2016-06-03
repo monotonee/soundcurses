@@ -17,6 +17,7 @@ the command factory will probably be implemented instead.
 """
 
 import abc
+import time
 
 class BaseState(metaclass=abc.ABCMeta):
     """
@@ -123,14 +124,24 @@ class NoUsernameState(BaseState):
         Verify the results of a username resolution call.
 
         """
-        # If self._future_resolve_username is not "reset", infinite loop.
+        # Reset future attribute since the future has been consumed.
         future = self._future_resolve_username
         self._future_resolve_username = None
 
-        # The self._souncloud_wrapper.HTTP_ERROR indicates that
+        # The self._souncloud_wrapper.HTTP_ERROR indicates that username could
+        # not be resolved.
         if future.exception():
-            if isinstance(future.exception(), self._souncloud_wrapper.HTTP_ERROR):
-                self._prompt_username()
+            username_not_resolved = isinstance(
+                future.exception(), self._souncloud_wrapper.HTTP_ERROR)
+            if username_not_resolved:
+                # Manual rendering must be performed since this function will be
+                # blocking this thread's main loop that contains the regular
+                # render call.
+                self._view.hide_loading_animation()
+                self._view.show_message('Username not found. Please try again.')
+                self._view.render()
+                time.sleep(3)
+                self._view.hide_message()
             else:
                 raise future.exception()
         else:
