@@ -13,7 +13,7 @@ class MainView:
     """
 
     def __init__(self, input_source, screen, model,
-        window_header, window_nav, window_content, window_modal):
+        window_status, window_nav, window_content, window_modal):
         """ Constructor.
 
         input_source - Provides an interface for receiving input events from
@@ -26,7 +26,7 @@ class MainView:
         self._model = model
         self._screen = screen
         self._window_content = window_content
-        self._window_header = window_header
+        self._window_status = window_status
         self._window_modal = window_modal
         self._window_nav = window_nav
 
@@ -47,7 +47,7 @@ class MainView:
         Respond to an update of the current user data.
 
         """
-        self._window_header.username = self._model.current_user.username
+        self._window_status.username = self._model.current_user.username
 
     def _handle_current_track_set_change(self, **kwargs):
         """

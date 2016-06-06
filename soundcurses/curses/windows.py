@@ -8,8 +8,10 @@ import itertools
 import math
 
 class CursesWindow:
-    """ Defines a base class that encapsulates a layout region, implemented
-    using a curses window or panel.
+    """
+    Defines a base class that encapsulates a layout region.
+
+    Must be passed to the curses screen object in order to be rendered.
 
     RENDER_LAYER_* - Standardize special render layer levels.
     RENDER_LAYER_HIDDEN - Windows rendered on this layer will be rendered
@@ -140,8 +142,49 @@ class StdscrWindow(CursesWindow):
 
 
 class HeaderWindow(CursesWindow):
-    """ A curses window that manages the header region. The header region is
-    mostly a static data display.
+    """
+    A curses window that manages the status region.
+
+    Designed to display current SoundCloud user and other instance data.
+
+    """
+    def __init__(self, window, signal_render_layer_change, curses):
+        super().__init__(window, signal_render_layer_change)
+
+        self._curses = curses
+
+        self._configure()
+        self._write_text()
+
+    def _configure(self):
+        """
+        Configure window properties.
+
+        Sets initial window state such as borders, colors, initial content, etc.
+        Designed to be called only during object construction.
+
+        """
+        self._window.bkgd(' ', self._curses.A_REVERSE)
+        self.render_layer_default = self.RENDER_LAYER_BASE + 1
+        self._render_layer_current = self.RENDER_LAYER_BASE + 1
+
+    def _write_text(self):
+        """
+        Writes static text to the window.
+
+        Text will not change during program execution.
+
+        """
+        self._window.addstr(0, 0, 'soundcurses - version 0.0.1')
+        help_string = 'F1: help'
+        self._window.addstr(0, self.cols - len(help_string) - 1, help_string)
+
+
+class StatusWindow(CursesWindow):
+    """
+    A curses window that manages the header region.
+
+    Designed to display static program name and version along with "help" key.
 
     """
     def __init__(self, window, signal_render_layer_change):
@@ -158,7 +201,6 @@ class HeaderWindow(CursesWindow):
         Sets initial window state such as borders, colors, initial content, etc.
         Designed to be called only during object construction.
         """
-        # self._window.bkgd(' ', self._curses.color_pair(1))
         self.render_layer_default = self.RENDER_LAYER_BASE + 1
         self._render_layer_current = self.RENDER_LAYER_BASE + 1
 

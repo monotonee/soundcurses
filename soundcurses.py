@@ -34,17 +34,21 @@ def main(stdscr):
         signal_window_render_layer_changed,
         curses_wrapper)
     window_header = windows.HeaderWindow(
-        curses_wrapper.newwin(3, curses_wrapper.COLS, 0, 0),
+        curses_wrapper.newwin(1, curses_wrapper.COLS, 0, 0),
+        signal_window_render_layer_changed,
+        curses_wrapper)
+    window_status = windows.StatusWindow(
+        curses_wrapper.newwin(3, curses_wrapper.COLS, 1, 0),
         signal_window_render_layer_changed)
     window_nav = windows.NavWindow(
-        curses_wrapper.newwin(3, curses_wrapper.COLS, 3, 0),
+        curses_wrapper.newwin(3, curses_wrapper.COLS, 4, 0),
         signal_window_render_layer_changed,
         curses_string_factory)
     window_content = windows.ContentWindow(
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
             curses_wrapper.COLS,
-            6, 0),
+            7, 0),
         signal_window_render_layer_changed,
         curses_wrapper)
 
@@ -57,6 +61,7 @@ def main(stdscr):
         signal_rendered,
         window_stdscr,
         window_header,
+        window_status,
         window_nav,
         window_content)
 
@@ -107,7 +112,7 @@ def main(stdscr):
         input_source,
         curses_screen,
         souncloud_wrapper,
-        window_header,
+        window_status,
         window_nav,
         window_content,
         window_modal)

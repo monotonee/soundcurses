@@ -44,7 +44,7 @@ class CursesWrapper:
 
         # Define color pairs.
         # self._curses.init_pair(
-            # 1, self._curses.COLOR_WHITE, self._curses.COLOR_BLUE)
+            # 1, self._curses.COLOR_BLACK, self._curses.COLOR_WHITE)
 
     def _set_character_encoding(self):
         """ Determine environment locale and get encoding.
