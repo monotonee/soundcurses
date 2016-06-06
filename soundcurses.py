@@ -29,26 +29,35 @@ def main(stdscr):
     curses_string_factory = windows.CursesStringFactory(curses_wrapper)
     signal_window_render_layer_changed = signalslot.Signal(
         args=['window', 'delta'])
+    y_coord_offset = 0
     window_stdscr = windows.StdscrWindow(
         stdscr,
         signal_window_render_layer_changed,
         curses_wrapper)
+
     window_header = windows.HeaderWindow(
-        curses_wrapper.newwin(1, curses_wrapper.COLS, 0, 0),
+        curses_wrapper.newwin(1, curses_wrapper.COLS, y_coord_offset, 0),
         signal_window_render_layer_changed,
         curses_wrapper)
+    y_coord_offset += window_header.lines
+
     window_status = windows.StatusWindow(
-        curses_wrapper.newwin(3, curses_wrapper.COLS, 1, 0),
+        curses_wrapper.newwin(3, curses_wrapper.COLS, y_coord_offset, 0),
         signal_window_render_layer_changed)
+    y_coord_offset += window_status.lines
+
     window_nav = windows.NavWindow(
-        curses_wrapper.newwin(3, curses_wrapper.COLS, 4, 0),
+        curses_wrapper.newwin(3, curses_wrapper.COLS, y_coord_offset, 0),
         signal_window_render_layer_changed,
         curses_string_factory)
+    y_coord_offset += window_nav.lines
+
     window_content = windows.ContentWindow(
         curses_wrapper.newwin(
             curses_wrapper.LINES - 6,
             curses_wrapper.COLS,
-            7, 0),
+            y_coord_offset,
+            0),
         signal_window_render_layer_changed,
         curses_wrapper)
 
