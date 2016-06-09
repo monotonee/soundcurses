@@ -63,7 +63,7 @@ class CursesScreen:
         for window in self._windows:
             window.touchwin()
 
-    def _handle_window_render_layer_change(self, window, delta, **kwargs):
+    def _handle_window_layer_change(self, window, delta, **kwargs):
         """
         Respond to a change in a given window's render layer value.
 
@@ -86,8 +86,8 @@ class CursesScreen:
         """ Add a new window to the screen.
 
          """
-        new_window.signal_render_layer_change.connect(
-            self._handle_window_render_layer_change)
+        new_window.signal_layer_change.connect(
+            self._handle_window_layer_change)
         self._windows.append(new_window)
 
     @property

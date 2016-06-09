@@ -18,6 +18,7 @@ class UserInputMapper:
     """
 
     ACTION_ENTER_USERNAME = 'Enter username'
+    ACTION_HELP = 'Help'
     ACTION_QUIT = 'Quit'
 
     def __init__(self):
@@ -34,9 +35,12 @@ class UserInputMapper:
         Determine key mappings and populate the keymap dictionary.
 
         Listed in ascending alphanumerical order by key.
+
         """
         self._keymap['q'] = self.ACTION_QUIT
         self._keymap['u'] = self.ACTION_ENTER_USERNAME
+
+        self._keymap['KEY_F(1)'] = self.ACTION_HELP
 
     def resolve_input(self, input_string):
         """
@@ -47,5 +51,6 @@ class UserInputMapper:
 
         Returns:
             Class ACTION_* constant if mapping exists, None otherwise.
+
         """
-        return self._keymap.get(input_string, None)
+        return self._keymap.get(input_string, input_string)

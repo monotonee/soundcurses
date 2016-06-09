@@ -3,30 +3,108 @@ and to be passed to higher-level classes.
 
 """
 
+import abc
 import collections
 import itertools
 import math
+import textwrap
 
-class CursesWindow:
+class AbstractCursesWindow(metaclass=abc.ABCMeta):
+    """
+    An ABC that declares the "interface" for a curses window wrapper class.
+
+    All curses window wrapper classes are also expected to expose or override
+    the underlying curses window methods as well. This ABC simply declares the
+    additional methods that a wrapper must define.
+
+    """
+    @abc.abstractmethod
+    def __getattr__(self, name):
+        """
+        Expose underlying curses window methods.
+
+        Designed to allow passthrough access to underlying window object using
+        built-in getattr(). If attribute is nonexistent, AttributeError is
+        raised by getattr() and allowed to bubble.
+
+        I don't know if definining this "magic method" in an ABC is good
+        practice. It was done for future maintainability so that the maintainer
+        does not forget to expose curses window methods with any new window
+        wrapper classes.
+
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def cols(self):
+        """
+        Return the window's x-axis dimension in columns.
+
+        Returns:
+            int: The number of columns.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def hide(self):
+        """
+        Set current render layer to hidden.
+
+        When window is passed to rendering queue, will ensure that window is not
+        visible upon next physical screen render.
+
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def lines(self):
+        """
+        Return the window's y-axis dimension in lines.
+
+        Returns:
+            int: The number of lines.
+
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def render_layer(self):
+        """
+        Return the render layer to which the window is currently assigned.
+
+        Returns:
+            int: The render layer.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def show(self):
+        """
+        Set window's render layer to its default.
+
+        Often called to reverse the effects of a call to hide().
+
+        """
+        pass
+
+
+class LayoutWindow(AbstractCursesWindow):
     """
     Defines a base class that encapsulates a layout region.
 
     Must be passed to the curses screen object in order to be rendered.
-
-    RENDER_LAYER_* - Standardize special render layer levels.
-    RENDER_LAYER_HIDDEN - Windows rendered on this layer will be rendered
-        behind stdscr and will therefore be invisible on physical screen.
-        New windows default to this render layer.
-    RENDER_LAYER_BASE - The base layer on which the stdscr window will
-        (should) be rendered. Since stdscr is not used for rendering any UI
-        components, will remain blank.
 
     """
 
     RENDER_LAYER_HIDDEN = 0
     RENDER_LAYER_BASE = 1
 
-    def __init__(self, window, signal_render_layer_change):
+    def __init__(self, window, signal_layer_change):
         """
         Constructor.
 
@@ -46,7 +124,7 @@ class CursesWindow:
         self._render_layer_current = self.RENDER_LAYER_BASE
         self._window = window
         self.render_layer_default = self.RENDER_LAYER_BASE
-        self.signal_render_layer_change = signal_render_layer_change
+        self.signal_layer_change = signal_layer_change
 
     def __getattr__(self, name):
         """
@@ -62,45 +140,49 @@ class CursesWindow:
         """
         render_layer_delta = int(new_render_layer) - self._render_layer_current
         self._render_layer_current = new_render_layer
-        self.signal_render_layer_change.emit(
+        self.signal_layer_change.emit(
             window=self, delta=render_layer_delta)
 
     @property
     def cols(self):
+        """
+        Implement abstract method.
+
+        """
         return self._window.getmaxyx()[1]
 
     def hide(self):
         """
-        Set current render layer to hidden.
+        Implement abstract method.
 
-        When window is passed to rendering queue, will ensure that window is not
-        visible upon next physical render.
-
-        This method was defined so that calling code does not necessarily have
-        to be aware of class constant attributes such as RENDER_LAYER_HIDDEN and
-        may use this shorthand method over directly accessing render_layer
-        attribute.
         """
         self._change_render_layer(self.RENDER_LAYER_HIDDEN)
 
     @property
     def lines(self):
+        """
+        Implement abstract method.
+
+        """
         return self._window.getmaxyx()[0]
 
     @property
     def render_layer(self):
+        """
+        Implement abstract method.
+
+        """
         return self._render_layer_current
 
     def show(self):
         """
-        Set window's render layer to default.
+        Implement abstract method.
 
-        Often called to reverse the effects of a call to hide().
         """
         self._change_render_layer(self.render_layer_default)
 
 
-class StdscrWindow(CursesWindow):
+class StdscrWindow(LayoutWindow):
     """ Abstracts the main "stdscr" curses window above which other windows are
     rendered. In the curses library, stdscr often performs some special duties
     as well and this specialized subclass exposes the necessary interfaces.
@@ -111,8 +193,8 @@ class StdscrWindow(CursesWindow):
     screen since no content is rendered to stdscr.
 
     """
-    def __init__(self, window, signal_render_layer_change, curses):
-        super().__init__(window, signal_render_layer_change)
+    def __init__(self, window, signal_layer_change, curses):
+        super().__init__(window, signal_layer_change)
 
         self._curses = curses
 
@@ -141,15 +223,15 @@ class StdscrWindow(CursesWindow):
         return key_pressed
 
 
-class HeaderWindow(CursesWindow):
+class HeaderWindow(LayoutWindow):
     """
     A curses window that manages the status region.
 
     Designed to display current SoundCloud user and other instance data.
 
     """
-    def __init__(self, window, signal_render_layer_change, curses):
-        super().__init__(window, signal_render_layer_change)
+    def __init__(self, window, signal_layer_change, curses):
+        super().__init__(window, signal_layer_change)
 
         self._curses = curses
 
@@ -180,15 +262,15 @@ class HeaderWindow(CursesWindow):
         self._window.addstr(0, self.cols - len(help_string) - 1, help_string)
 
 
-class StatusWindow(CursesWindow):
+class StatusWindow(LayoutWindow):
     """
     A curses window that manages the header region.
 
     Designed to display static program name and version along with "help" key.
 
     """
-    def __init__(self, window, signal_render_layer_change):
-        super().__init__(window, signal_render_layer_change)
+    def __init__(self, window, signal_layer_change):
+        super().__init__(window, signal_layer_change)
 
         self._username = None
 
@@ -214,7 +296,7 @@ class StatusWindow(CursesWindow):
         self._window.addstr(1, 1, username)
 
 
-class NavWindow(CursesWindow):
+class NavWindow(LayoutWindow):
     """
     A curses window that manages the navigation region.
 
@@ -234,9 +316,9 @@ class NavWindow(CursesWindow):
     NAV_ITEM_04_FOLLOWING = 'FOLLOWING'
     NAV_ITEM_05_FOLLOWERS = 'FOLLOWERS'
 
-    def __init__(self, window, signal_render_layer_change,
+    def __init__(self, window, signal_layer_change,
         curses_string_factory):
-        super().__init__(window, signal_render_layer_change)
+        super().__init__(window, signal_layer_change)
 
         self._currently_highlighted_item = None
         self._curses_string_factory = curses_string_factory
@@ -329,14 +411,14 @@ class NavWindow(CursesWindow):
         self._currently_highlighted_item.style_reverse()
 
 
-class ContentWindow(CursesWindow):
+class ContentWindow(LayoutWindow):
     """ A curses window that manages the content region. The content region's
     primary function is to display track listings, the constituent tracks of
     which may be selected and played.
 
     """
-    def __init__(self, window, signal_render_layer_change, curses):
-        super().__init__(window, signal_render_layer_change)
+    def __init__(self, window, signal_layer_change, curses):
+        super().__init__(window, signal_layer_change)
 
         self._curses = curses
 
@@ -356,16 +438,75 @@ class ContentWindow(CursesWindow):
         self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
 
-class ModalWindow(CursesWindow):
+class ModalWindow(AbstractCursesWindow):
+    """
+    A wrapper for a curses window that exposes modal-like behavior.
+
+    This is a base class that provides common functionality for more specialized
+    modal windows.
+
+    """
+    def __int__(self, curses, signal_layer_change):
+        """
+        Constructor.
+
+        """
+        self._curses = curses
+        self._window = None
+        self.signal_layer_change = signal_layer_change
+
+    @property
+    def cols(self):
+        """
+        Return the window's x-axis dimension in columns.
+
+        Returns:
+            int: The number of columns.
+
+        """
+        return self._window.getmaxyx()[1]
+
+    def hide(self):
+        """
+        Set current render layer to hidden.
+
+        When window is passed to rendering queue, will ensure that window is not
+        visible upon next physical render.
+
+        This method was defined so that calling code does not necessarily have
+        to be aware of class constant attributes such as RENDER_LAYER_HIDDEN and
+        may use this shorthand method over directly accessing render_layer
+        attribute.
+        """
+        self._change_render_layer(self.RENDER_LAYER_HIDDEN)
+
+    @property
+    def lines(self):
+        return self._window.getmaxyx()[0]
+
+    @property
+    def render_layer(self):
+        return self._render_layer_current
+
+    def show(self):
+        """
+        Set window's render layer to default.
+
+        Often called to reverse the effects of a call to hide().
+        """
+        self._change_render_layer(self.render_layer_default)
+
+
+class ModalWindow(LayoutWindow):
     """ Manages the display and operation of a modal window on a rendering layer
     that will place it on top of existing windows. Hidden by default.
 
     Note that window.addstr() and/or window.getstr() contains implicit refresh.
 
     """
-    def __init__(self, window, signal_render_layer_change,
+    def __init__(self, window, signal_layer_change,
         curses, curses_string_factory, animation):
-        super().__init__(window, signal_render_layer_change)
+        super().__init__(window, signal_layer_change)
 
         self._current_animation = animation
         self._current_spinner = None
@@ -508,6 +649,182 @@ class ModalWindow(CursesWindow):
         self.erase()
 
 
+class MessageModalWindow(LayoutWindow):
+    """ Manages the display and operation of a modal window on a rendering layer
+    that will place it on top of existing windows. Hidden by default.
+
+    Note that window.addstr() and/or window.getstr() contains implicit refresh.
+
+    Attributes:
+        PADDING_* (float) The "percent" of window cols and lines used as
+            internal padding for the message. Calling code may wish to consider
+            these values when deciding window size and submitting messages to
+            the instances of this class. Value is per side.
+
+    """
+
+    PADDING = 0.2
+
+    def __init__(self, window, signal_layer_change, curses_string_factory):
+        super().__init__(window, signal_layer_change)
+
+        self._curses_string_factory = curses_string_factory
+
+        self._configure()
+
+    def _configure(self):
+        """
+        Configure window properties.
+
+        Sets initial window state such as borders, colors, initial content, etc.
+        Designed to be called only during object construction.
+        """
+        self._configure_style()
+        self.render_layer_default = self.RENDER_LAYER_BASE + 2
+        self._render_layer_current = self.RENDER_LAYER_HIDDEN
+
+    def _configure_style(self):
+        """
+        Reinitialize window styles tht can be cleared by calls to window.erase.
+
+        Internal method for drawing borders and other decoration. Separated
+        so that borders, for instance, can be redrawn after calls to
+        window.erase().
+
+        """
+        self._window.border()
+
+    def _get_centered_coords(self, string):
+        """
+        Return a tuple of coordinates (y, x) that will place given string at
+        center of window.
+
+        Args:
+            string (str): A single-line string.
+
+        Raises:
+            ValueError: If string is too long for window dimensions.
+
+        """
+        if len(string) > self.cols - 2:
+            raise ValueError('String length exceeds window bounds')
+
+        coord_x = round((self.cols - len(string)) / 2)
+        coord_y = round((self.lines - 1) / 2)
+        return (coord_y, coord_x)
+
+    def erase(self):
+        """ Clear all window content and re-draw border.
+
+        """
+        self._window.erase()
+        self._configure_style()
+
+    def message(self, message_string):
+        """
+        Display a blank modal window save for a string of text characters.
+
+        Currently, text string must not occupy more columns than those that are
+        available in the window's dimensions.
+
+        Raises:
+            ValueError: If text string is too long for window dimensions.
+
+        """
+        # Validate string.
+        lines_list = textwrap.wrap
+
+        self.erase()
+        coord_y, coord_x = self._get_centered_coords(string)
+        string_object = self._curses_string_factory.create_string(
+            self, string, coord_y, coord_x)
+        string_object.write()
+
+    @property
+    def padding_cols(self):
+        return self.cols
+
+
+
+class ModalWindowFactory:
+    """
+    A class the allows the runtime creation of modal windows.
+
+    """
+    def __init__(self, curses, signal_layer_change,
+        curses_string_factory, spinner_animation):
+        """
+        Constructor.
+
+        """
+        self._curses = curses
+        self._curses_string_factory = curses_string_factory
+        self._signal_layer_change = signal_layer_change
+        self._spinner_animation = spinner_animation
+
+    def create_prompt_modal(self):
+        pass
+
+    def create_message_modal(self, message_string):
+        """
+        Create a message modal window.
+
+        Modal window is hidden by default. Although the message in the returned
+        modal window can be publicly set, the passed message string will be
+        preemptively set and will be ready for display when new window object is
+        returned. No sense in making the calling code pass it twice.
+
+        This method uses the length of the passed message to determine the size
+        of the returned window. A margin will be left around the window so that
+        it does not cover the entirety of the available screen space and padding
+        will be placed inside the window so that borders do not conflict with
+        the text. Window will be centered in screen.
+
+        The message window class my impose its own message length restrictions.
+        Any thrown exceptions will be allowed to propagate. This methd does not
+        attempt to anticipate the message window's internal requirements.
+
+        """
+        # Determine minimum window size.
+        min_window_percent = 0.4
+        min_dim_cols = self._curses.COLS * min_window_percent
+        min_dim_lines = self._curses.LINES * min_window_percent
+
+
+        # Validate message length.
+        min_margin = 0.2
+        max_win_cols = self._curses.COLS - (self._curses.COLS * min_margin)
+        avail_cols = max_win_cols - (max_win_cols * MessageModalWindow.PADDING)
+        max_win_lines = self._curses.LINES - (self._curses.LINES * min_margin)
+        avail_lines = max_win_lines \
+            - (max_win_lines * MessageModalWindow.PADDING)
+
+        max_lines_list = textwrap.wrap(mesage_string, width=avail_cols)
+        if len(max_lines_list) > avail_lines:
+            raise ValueError('Message string will not fit in window.')
+
+        # Calculate window size. If message fits into a window half of max size,
+        # do it. Otherwise, create window at max size.
+        window_cols = avail_cols
+        window_lines = avail_lines
+        test_lines_list = textwrap.wrap(mesage_string, width=(avail_cols / 2))
+        if len(test_lines_list) <= avail_lines:
+            window_cols /= 2
+            window_lines /= 2
+
+        return MessageModalWindow(
+            self._curses.newwin(
+                window_lines,
+                window_cols,
+                (self._curses.LINES - window_lines) / 2,
+                (self._curses.COLS - window_cols) / 2),
+            self._signal_layer_change,
+            self._curses_string_factory)
+
+    def create_text_modal(self):
+        pass
+
+
 class CursesString:
     """
     A class that maintains string and coordinate information.
@@ -525,7 +842,7 @@ class CursesString:
             curses: A curses library module namespace or the CursesWrapper.
                 Necessary for the use of string styling contstants.
             window (curses.newwin): A raw curses window, although not
-                necessarily an abstracted soundcurses.curses.CursesWindow. The
+                necessarily an abstracted soundcurses.curses.LayoutWindow. The
                 extra interface isn't needed but passing one in won't affect
                 operations.
             string: (string)

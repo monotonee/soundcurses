@@ -81,6 +81,56 @@ class BaseState(metaclass=abc.ABCMeta):
         pass
 
 
+class HelpState(BaseState):
+    """
+    Class that defines the application's help state.
+
+    When in this state, application is displaying a modal window containing
+    key-to-action mappings.
+
+    """
+
+    @abc.abstractmethod
+    def enter(self):
+        """
+        Perform main tasks immediately after state is loaded.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def exit(self):
+        """
+        Perform tasks immediately before state is unloaded.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def handle_input(self, action):
+        """
+        Perform tasks in response to user input.
+
+        Args:
+            action: A constant value from the local user input module.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def run_interval_tasks(self):
+        """
+        Run tasks that are required to be run on regular interval.
+
+        As long as the state remains loaded, this method will be called once per
+        main loop cycle. Do not depend on any specific execution interval. In
+        a given main loop iteration, this method will be called before the call
+        to the screen's render method.
+
+        """
+        pass
+
+
 class NoUsernameState(BaseState):
     """
     The application has not yet been given a valid SoundCloud username.
@@ -174,6 +224,8 @@ class NoUsernameState(BaseState):
             self._controller.stop_application()
         elif action == self._input_mapper.ACTION_ENTER_USERNAME:
             self._prompt_username()
+        elif action == self._input_mapper.ACTION_HELP
+            pass
 
     def run_interval_tasks(self):
         """
