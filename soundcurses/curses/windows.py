@@ -292,6 +292,9 @@ class StatusRegion:
         """
         Constructor.
 
+        Raises:
+            ValueError: If window is too small for content.
+
         """
         # Validate arguments.
         if window.lines < 1:
@@ -336,17 +339,17 @@ class StatusRegion:
         self._username.write()
 
 
-class NavWindow(LayoutWindow):
+class NavRegion:
     """
-    A curses window that manages the navigation region.
+    A class that represents the nav region.
 
-    Generally, since this application is largely based on the SoundCloud
-    user, each navigation link is a user sub-resource. Examples include
-    the current SoundCloud user's tracks, playlists, favorites, etc.
+    Displays username sub-resources such as tracks, playlists, etc. Only a
+    single nav item can be highlighted at a given time. There will always be a
+    nav item highlighted.
 
-    The SoundCloud user subresource categories are pretty static. Therefore,
+    The user subresource categories are pretty static and I know of no way to
+    query a resource in order to dynamically-enumerate them. Therefore,
     this window will be hard-coded with a preset set of available menu items.
-    The calling code will simply activate or deactivate them as necessary.
 
     """
 
@@ -356,14 +359,22 @@ class NavWindow(LayoutWindow):
     NAV_ITEM_04_FOLLOWING = 'FOLLOWING'
     NAV_ITEM_05_FOLLOWERS = 'FOLLOWERS'
 
-    def __init__(self, window, signal_layer_change,
-        curses_string_factory):
-        super().__init__(window, signal_layer_change)
+    def __init__(self, window, string_factory):
+        """
+        Constructor.
+
+        Raises:
+            ValueError: If window is too small for content.
+
+        """
+        # Validate arguments.
+        if window.lines < 1:
+            raise ValueError('Window is to small for region content.')
 
         self._currently_highlighted_item = None
-        self._curses_string_factory = curses_string_factory
         self._highlighted_item_cycle = None
         self._nav_items = collections.OrderedDict()
+        self._string_factory = string_factory
 
         self._configure()
         self._init_items()
@@ -371,24 +382,23 @@ class NavWindow(LayoutWindow):
 
     def _configure(self):
         """
-        Configure window properties.
+        Configure region/window properties.
 
         Sets initial window state such as borders, colors, initial content, etc.
         Designed to be called only during object construction.
+
         """
         self._window.border()
-        self.render_layer_default = self.RENDER_LAYER_BASE + 1
-        self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
     def _init_items(self):
         """
-        Write nav items to the nav window and select first highlighted item.
+        Write nav items to the nav window.
 
         Dynamically enumerates the NAV_ITEM_* constants and places them in a
         dictionary. Dict keys are nav item constant values, dict values are the
         CursesString objects of the character strings written to window.
 
-        After writing, selects the nav item to be highlighted by default.
+        Currently does not accound for very narrow screen widths.
 
         Called in constructor before the highlighted item initializer.
 
@@ -403,43 +413,58 @@ class NavWindow(LayoutWindow):
                 self._nav_items[nav_item_display_string] = None
                 total_char_count += len(nav_item_display_string)
 
-        # Calculate initial nav item string spacing within window.
-        # For now, ignore edge case window sizes such as "very small."
+        # Calculate initial intra-nav-item spacing within window.
+        # For now, ignore very narrow edge case window sizes.
         # TEMPORARILY assume that there are more available cols than characters.
         # Remove two cols from available cols for edge spacing/border.
         spacing_cols = math.floor(
             (self.cols - 2 - total_char_count) / (len(self._nav_items) - 1))
+
+        # Determine coords at which to begin writing.
+        y_coord = (self._window.lines - 1) / 2
+        x_coord = 1
 
         # Create nav item string objects with spaced coords and write to window.
         # Place first nav item then place following items in a loop since first
         # item has no left-hand spacing.
         nav_item_iter =  iter(self._nav_items.keys())
         first_item = next(nav_item_iter)
-        first_string = self._curses_string_factory.create_string(
-            self._window, first_item, 1, 1)
+        first_string = self._string_factory.create_string(
+            self._window, first_item, y_coord, x_coord)
         first_string.write()
         self._nav_items[first_item] = first_string
 
         # Write the remainder of the nav items to window.
-        cols_offset = 1 + len(first_string) + spacing_cols
+        x_coord = len(first_string) + spacing_cols
         for nav_item in nav_item_iter:
-            nav_string = self._curses_string_factory.create_string(
-                self._window, nav_item, 1, cols_offset)
+            nav_string = self._string_factory.create_string(
+                self._window, nav_item, y_coord, x_coord)
             nav_string.write()
             self._nav_items[nav_item] = nav_string
-            cols_offset += len(nav_string) + spacing_cols
+            x_coord += len(nav_string) + spacing_cols
 
     def _init_highlighted_item(self):
         """
         Initialize the highlight iterator and highlight the default nav item.
 
-        Called in constructor after the nav item initializer.
+        Called in constructor after the nav item initializer. Each item in cycle
+        is a CursesString instance so "highlighting" is merely changing the
+        displayed string's style in some contrasting way.
 
         """
         self._highlighted_item_cycle = itertools.cycle(
             iter(self._nav_items.values()))
         self._currently_highlighted_item = next(self._highlighted_item_cycle)
         self._currently_highlighted_item.style_reverse()
+
+    def _set_highighted_style(self, item):
+        """
+        Set the passed item to the chosen highlight curses string style.
+
+        This method simply centralizes the style.
+
+        """
+        item.style_reverse()
 
     def highlight_next(self):
         """
@@ -448,7 +473,29 @@ class NavWindow(LayoutWindow):
         """
         self._currently_highlighted_item.style_normal()
         self._currently_highlighted_item = next(self._highlighted_item_cycle)
-        self._currently_highlighted_item.style_reverse()
+        self._set_highighted_style(self._currently_highlighted_item)
+
+    def highlight_item(self, item_string):
+        """
+        Highlight a specific nav item.
+
+        Args:
+            item_string (string): A string value of one of NAV_ITEM_* constants.
+
+        Raises:
+            ValueError: If item is not a valid nav item.
+        """
+        if item_string not in self._nav_items:
+            raise ValueError('Nonexistent nav menu item.')
+
+        self._currently_highlighted_item.style_normal()
+        self._currently_highlighted_item = self._nav_items[item_string]
+        self._set_highighted_style(self._currently_highlighted_item)
+
+        # "Fast-forward" cycle to match currently-highlighted item.
+        for item in self._highlighted_item_cycle:
+            if item.string == self._currently_highlighted_item.string
+            break
 
 
 class ContentWindow(LayoutWindow):
@@ -545,13 +592,13 @@ class ModalWindow(LayoutWindow):
 
     """
     def __init__(self, window, signal_layer_change,
-        curses, curses_string_factory, animation):
+        curses, string_factory, animation):
         super().__init__(window, signal_layer_change)
 
         self._current_animation = animation
         self._current_spinner = None
         self._curses = curses
-        self._curses_string_factory = curses_string_factory
+        self._string_factory = string_factory
 
         self._configure()
 
@@ -616,7 +663,7 @@ class ModalWindow(LayoutWindow):
         """
         self.erase()
         coord_y, coord_x = self._get_centered_coords(string)
-        string_object = self._curses_string_factory.create_string(
+        string_object = self._string_factory.create_string(
             self, string, coord_y, coord_x)
         string_object.write()
 
@@ -653,7 +700,7 @@ class ModalWindow(LayoutWindow):
         self.erase()
         prompt_string_coord_y, prompt_string_coord_x = \
             self._get_centered_coords(prompt_string)
-        curses_prompt_string = self._curses_string_factory.create_string(
+        curses_prompt_string = self._string_factory.create_string(
             self._window,
             prompt_string,
             prompt_string_coord_y,
@@ -705,10 +752,10 @@ class MessageModalWindow(LayoutWindow):
 
     PADDING = 0.2
 
-    def __init__(self, window, signal_layer_change, curses_string_factory):
+    def __init__(self, window, signal_layer_change, string_factory):
         super().__init__(window, signal_layer_change)
 
-        self._curses_string_factory = curses_string_factory
+        self._string_factory = string_factory
 
         self._configure()
 
@@ -776,7 +823,7 @@ class MessageModalWindow(LayoutWindow):
 
         self.erase()
         coord_y, coord_x = self._get_centered_coords(string)
-        string_object = self._curses_string_factory.create_string(
+        string_object = self._string_factory.create_string(
             self, string, coord_y, coord_x)
         string_object.write()
 
@@ -792,13 +839,13 @@ class ModalWindowFactory:
 
     """
     def __init__(self, curses, signal_layer_change,
-        curses_string_factory, spinner_animation):
+        string_factory, spinner_animation):
         """
         Constructor.
 
         """
         self._curses = curses
-        self._curses_string_factory = curses_string_factory
+        self._string_factory = string_factory
         self._signal_layer_change = signal_layer_change
         self._spinner_animation = spinner_animation
 
@@ -859,7 +906,7 @@ class ModalWindowFactory:
                 (self._curses.LINES - window_lines) / 2,
                 (self._curses.COLS - window_cols) / 2),
             self._signal_layer_change,
-            self._curses_string_factory)
+            self._string_factory)
 
     def create_text_modal(self):
         pass
