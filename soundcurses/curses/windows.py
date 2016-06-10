@@ -240,6 +240,7 @@ class HeaderRegion:
 
         Raises:
             ValueError: If window is too small for content.
+
         """
         # Validate arguments.
         if window.lines < 1:
@@ -304,8 +305,15 @@ class StatusRegion:
         """
         Get the currently-displayed username.
 
+        The value of the username attribute will either be None or a
+        curses string wrapper (CursesString) object instance.
+
         """
-        return self._username
+        username_string = None
+        if self._username:
+            username_string = self._username.string
+
+        return username_string
 
     @username.setter
     def username(self, username):
@@ -317,8 +325,15 @@ class StatusRegion:
         few columns to complete string write.
 
         """
-        self._username = username
-        self._window.addstr(1, 1, username)
+        y_coord = (self._window.lines - 1) / 2
+        x_coord = 1
+
+        self._username = self._string_factory.create_string(
+            self._window,
+            username,
+            y_coord,
+            x_coord)
+        self._username.write()
 
 
 class NavWindow(LayoutWindow):
@@ -862,6 +877,7 @@ class CursesString:
     manually call the write method.
 
     """
+
     def __init__(self, curses, window, string, y, x, attr=None):
         """
         Constructor.
@@ -952,6 +968,14 @@ class CursesString:
             self._coord_y = y
             self._coord_x = x
 
+    @property
+    def string(self):
+        """
+        Get the internal string's value.
+
+        """
+        return self._string
+
     def style_bold(self):
         """
         Set the string curses attribute to bold style.
@@ -987,14 +1011,6 @@ class CursesString:
 
         """
         self.attr = self._curses.A_REVERSE
-
-    @property
-    def value(self):
-        """
-        Get the internal string's value.
-
-        """
-        return self._string
 
     def write(self):
         """
