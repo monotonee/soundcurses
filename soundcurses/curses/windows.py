@@ -498,31 +498,33 @@ class NavRegion:
         self._set_highighted_style(self._currently_highlighted_item)
 
 
-class ContentWindow(LayoutWindow):
-    """ A curses window that manages the content region. The content region's
-    primary function is to display track listings, the constituent tracks of
-    which may be selected and played.
+class ContentRegion:
+    """
+    A class that represents the content region.
+
+    The content region's primary function is to display user sub-resource
+    listings such as tracks or playlists.
 
     """
-    def __init__(self, window, signal_layer_change, curses):
-        super().__init__(window, signal_layer_change)
 
+    def __init__(self, window, curses):
+        """
+        Constructor.
+
+        """
         self._curses = curses
+        self._window = window
 
         self._configure()
 
     def _configure(self):
         """
-        Configure window properties.
+        Configure region/window properties.
 
-        Sets initial window state such as borders, colors, initial content, etc.
-        Designed to be called only during object construction.
         """
         self._window.border(
             ' ', ' ', 0, ' ',
             self._curses.ACS_HLINE, self._curses.ACS_HLINE, ' ', ' ')
-        self.render_layer_default = self.RENDER_LAYER_BASE + 1
-        self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
 
 class ModalWindow(AbstractCursesWindow):
