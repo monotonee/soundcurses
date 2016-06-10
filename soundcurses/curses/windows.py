@@ -3,22 +3,37 @@ and to be passed to higher-level classes.
 
 """
 
-import abc
 import collections
 import itertools
 import math
 import textwrap
 
-class AbstractCursesWindow(metaclass=abc.ABCMeta):
+class CursesWindow:
     """
-    An ABC that declares the "interface" for a curses window wrapper class.
+    A curses window wrapper class.
 
-    All curses window wrapper classes are also expected to expose or override
-    the underlying curses window methods as well. This ABC simply declares the
-    additional methods that a wrapper must define.
+    All curses window wrapper classes are expected to expose or override
+    the underlying curses window methods as well. This class also defines the
+    additional methods.
 
     """
-    @abc.abstractmethod
+
+    def __init__(self, window, signal_layer_change, screen, render_layer=None):
+        """
+        Constructor.
+
+        """
+        # Validate arguments.
+        # Set default render layer value.
+        if render_layer == None:
+            render_layer = screen.RENDER_LAYER_BASE
+
+        self._curses = curses
+        self._render_layer_current = render_layer
+        self._screen = screen
+        self.render_layer_default = render_layer
+        self.signal_layer_change = signal_layer_change
+
     def __getattr__(self, name):
         """
         Expose underlying curses window methods.
@@ -33,110 +48,12 @@ class AbstractCursesWindow(metaclass=abc.ABCMeta):
         wrapper classes.
 
         """
-        pass
-
-    @property
-    @abc.abstractmethod
-    def cols(self):
-        """
-        Return the window's x-axis dimension in columns.
-
-        Returns:
-            int: The number of columns.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def hide(self):
-        """
-        Set current render layer to hidden.
-
-        When window is passed to rendering queue, will ensure that window is not
-        visible upon next physical screen render.
-
-        """
-        pass
-
-    @property
-    @abc.abstractmethod
-    def lines(self):
-        """
-        Return the window's y-axis dimension in lines.
-
-        Returns:
-            int: The number of lines.
-
-        """
-        pass
-
-    @property
-    @abc.abstractmethod
-    def render_layer(self):
-        """
-        Return the render layer to which the window is currently assigned.
-
-        Returns:
-            int: The render layer.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def show(self):
-        """
-        Set window's render layer to its default.
-
-        Often called to reverse the effects of a call to hide().
-
-        """
-        pass
-
-
-class LayoutWindow(AbstractCursesWindow):
-    """
-    Defines a base class that encapsulates a layout region.
-
-    Must be passed to the curses screen object in order to be rendered.
-
-    """
-
-    RENDER_LAYER_HIDDEN = 0
-    RENDER_LAYER_BASE = 1
-
-    def __init__(self, window, signal_layer_change):
-        """
-        Constructor.
-
-        _curses - The curses library interface. Necessary for many window
-            config tasks such as the utilization of constants, toggling
-            curses.echo()/curses.noecho(), etc.
-        _window - A raw curses window object.
-        render_layer_default - Ranges from 0 (lowest) to integer n (higher).
-            Layers are rendered from lowest to highest. Windows on the same
-            render layer will be rendered in arbitrary order. Attribute is
-            public so that callers can "reset" _render_layer_current through
-            render_layer property if needed.
-
-        """
-
-        # Declare instance attributes.
-        self._render_layer_current = self.RENDER_LAYER_BASE
-        self._window = window
-        self.render_layer_default = self.RENDER_LAYER_BASE
-        self.signal_layer_change = signal_layer_change
-
-    def __getattr__(self, name):
-        """
-        According to my current knowledge, allows attribute access
-        passthrough to underlying window object. If attribute is nonexistent,
-        AttributeError is raised by getattr() and allowed to bubble.
-        """
         return getattr(self._window, name)
 
     def _change_render_layer(self, new_render_layer):
         """
-        Change render layer instance attribute and emit signal.
+        Change render layer and emit appropriate signal.
+
         """
         render_layer_delta = int(new_render_layer) - self._render_layer_current
         self._render_layer_current = new_render_layer
@@ -146,22 +63,31 @@ class LayoutWindow(AbstractCursesWindow):
     @property
     def cols(self):
         """
-        Implement abstract method.
+        Return the window's x-axis dimension in columns.
+
+        Returns:
+            int: The number of columns.
 
         """
         return self._window.getmaxyx()[1]
 
     def hide(self):
         """
-        Implement abstract method.
+        Set current render layer to hidden.
+
+        When window is passed to rendering queue, will ensure that window is not
+        visible upon next physical screen render.
 
         """
-        self._change_render_layer(self.RENDER_LAYER_HIDDEN)
+        self._change_render_layer(self._screen.RENDER_LAYER_HIDDEN)
 
     @property
     def lines(self):
         """
-        Implement abstract method.
+        Return the window's y-axis dimension in lines.
+
+        Returns:
+            int: The number of lines.
 
         """
         return self._window.getmaxyx()[0]
@@ -169,78 +95,165 @@ class LayoutWindow(AbstractCursesWindow):
     @property
     def render_layer(self):
         """
-        Implement abstract method.
+        Return the render layer to which the window is currently assigned.
+
+        Returns:
+            int: The render layer.
 
         """
         return self._render_layer_current
 
     def show(self):
         """
-        Implement abstract method.
+        Set window's render layer to its default.
+
+        Often called to reverse the effects of a call to hide().
 
         """
         self._change_render_layer(self.render_layer_default)
 
 
-class StdscrWindow(LayoutWindow):
-    """ Abstracts the main "stdscr" curses window above which other windows are
-    rendered. In the curses library, stdscr often performs some special duties
-    as well and this specialized subclass exposes the necessary interfaces.
+# class LayoutWindow():
+    # """
+    # Defines a base class that encapsulates a layout region.
 
-    Note the render layer. stdscr must be rendered first since it
-    lies behind all subwindows so render_layer value remains at the default 0.
-    If rendered after subwindows, stdscr will overlap them, resulting in a blank
-    screen since no content is rendered to stdscr.
+    # Must be passed to the curses screen object in order to be rendered.
+
+    # """
+
+    # RENDER_LAYER_HIDDEN = 0
+    # RENDER_LAYER_BASE = 1
+
+    # def __init__(self, window, signal_layer_change):
+        # """
+        # Constructor.
+
+        # _curses - The curses library interface. Necessary for many window
+            # config tasks such as the utilization of constants, toggling
+            # curses.echo()/curses.noecho(), etc.
+        # _window - A raw curses window object.
+        # render_layer_default - Ranges from 0 (lowest) to integer n (higher).
+            # Layers are rendered from lowest to highest. Windows on the same
+            # render layer will be rendered in arbitrary order. Attribute is
+            # public so that callers can "reset" _render_layer_current through
+            # render_layer property if needed.
+
+        # """
+
+        # # Declare instance attributes.
+        # self._render_layer_current = self.RENDER_LAYER_BASE
+        # self._window = window
+        # self.render_layer_default = self.RENDER_LAYER_BASE
+        # self.signal_layer_change = signal_layer_change
+
+    # def __getattr__(self, name):
+        # """
+        # According to my current knowledge, allows attribute access
+        # passthrough to underlying window object. If attribute is nonexistent,
+        # AttributeError is raised by getattr() and allowed to bubble.
+        # """
+        # return getattr(self._window, name)
+
+    # def _change_render_layer(self, new_render_layer):
+        # """
+        # Change render layer instance attribute and emit signal.
+        # """
+        # render_layer_delta = int(new_render_layer) - self._render_layer_current
+        # self._render_layer_current = new_render_layer
+        # self.signal_layer_change.emit(
+            # window=self, delta=render_layer_delta)
+
+    # @property
+    # def cols(self):
+        # """
+        # Implement abstract method.
+
+        # """
+        # return self._window.getmaxyx()[1]
+
+    # def hide(self):
+        # """
+        # Implement abstract method.
+
+        # """
+        # self._change_render_layer(self.RENDER_LAYER_HIDDEN)
+
+    # @property
+    # def lines(self):
+        # """
+        # Implement abstract method.
+
+        # """
+        # return self._window.getmaxyx()[0]
+
+    # @property
+    # def render_layer(self):
+        # """
+        # Implement abstract method.
+
+        # """
+        # return self._render_layer_current
+
+    # def show(self):
+        # """
+        # Implement abstract method.
+
+        # """
+        # self._change_render_layer(self.render_layer_default)
+
+
+# class BackgroundRegion:
+    # """
+    # A class that represents the background region of the screen.
+
+    # The background region encompasses the entirety of the screen and usually
+    # remains blank. It occupies the base render layer and therefore obscures
+    # any windows placed on lower render layers.
+
+    # Note the render layer value. This region must be rendered first since it
+    # lies behind all other regions. Render_layer value remains at the default 0.
+    # If rendered after other regions, this region will overlap them, resulting in
+    # a blank screen.
+
+    # """
+    # def __init__(self, window):
+        # """
+        # Constructor.
+
+        # """
+        # self._window = window
+
+
+class HeaderRegion:
+    """
+    A class that represents the header region.
+
+    The header region displays the current program version and the help hotkey.
+    The text displayed in this region is static and will not change at
+    runtime.
 
     """
-    def __init__(self, window, signal_layer_change, curses):
-        super().__init__(window, signal_layer_change)
+
+    def __init__(self, window, curses):
+        """
+        Constructor.
+
+        Raises:
+            ValueError: If window is too small for content.
+        """
+        # Validate arguments.
+        if window.lines < 1:
+            raise ValueError('Window is to small for region content.')
 
         self._curses = curses
-
-        self._configure()
-
-    def _configure(self):
-        """
-        Configure window properties.
-
-        Sets initial window state such as borders, colors, initial content, etc.
-        Designed to be called only during object construction.
-        """
-        self._window.nodelay(True)
-        self.render_layer_default = self.RENDER_LAYER_BASE
-        self._render_layer_current = self.RENDER_LAYER_BASE
-
-    def get_character(self):
-        """ Attempt to sample keypress from user.
-
-        """
-        try:
-            key_pressed = self._window.getkey()
-        except self._curses.error:
-            key_pressed = None
-
-        return key_pressed
-
-
-class HeaderWindow(LayoutWindow):
-    """
-    A curses window that manages the status region.
-
-    Designed to display current SoundCloud user and other instance data.
-
-    """
-    def __init__(self, window, signal_layer_change, curses):
-        super().__init__(window, signal_layer_change)
-
-        self._curses = curses
+        self._window = window
 
         self._configure()
         self._write_text()
 
     def _configure(self):
         """
-        Configure window properties.
+        Configure region/window properties.
 
         Sets initial window state such as borders, colors, initial content, etc.
         Designed to be called only during object construction.
@@ -254,7 +267,9 @@ class HeaderWindow(LayoutWindow):
         """
         Writes static text to the window.
 
-        Text will not change during program execution.
+        Text will not change at runtime. Yes, this is currently incompatible
+        with too few columns. The curses library will throw an exception from
+        addstr() if there are too few columns to complete string write.
 
         """
         self._window.addstr(0, 0, 'soundcurses - version 0.0.1')
@@ -262,36 +277,46 @@ class HeaderWindow(LayoutWindow):
         self._window.addstr(0, self.cols - len(help_string) - 1, help_string)
 
 
-class StatusWindow(LayoutWindow):
+class StatusRegion:
     """
-    A curses window that manages the header region.
+    A class that represents the header region.
 
-    Designed to display static program name and version along with "help" key.
+    This region displayes the current SoundCLoud user from which assets, such as
+    tracks and playlists, are currently displayed. May also display title
+    and artist of currently-playing tracks.
 
     """
-    def __init__(self, window, signal_layer_change):
-        super().__init__(window, signal_layer_change)
 
+    def __init__(self, window, string_factory):
+        """
+        Constructor.
+
+        """
+        # Validate arguments.
+        if window.lines < 1:
+            raise ValueError('Window is to small for region content.')
+
+        self._string_factory = string_factory
         self._username = None
-
-        self._configure()
-
-    def _configure(self):
-        """
-        Configure window properties.
-
-        Sets initial window state such as borders, colors, initial content, etc.
-        Designed to be called only during object construction.
-        """
-        self.render_layer_default = self.RENDER_LAYER_BASE + 1
-        self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
     @property
     def username(self):
+        """
+        Get the currently-displayed username.
+
+        """
         return self._username
 
     @username.setter
     def username(self, username):
+        """
+        Set the currently-displayed username.
+
+        Yes, this is currently incompatible with too few window columns. The
+        curses library will throw an exception from addstr() if there are too
+        few columns to complete string write.
+
+        """
         self._username = username
         self._window.addstr(1, 1, username)
 
@@ -827,65 +852,73 @@ class ModalWindowFactory:
 
 class CursesString:
     """
-    A class that maintains string and coordinate information.
+    A class that maintains a string and its coordinates within a window.
 
     Facilitates the display of characters within a curses window. Collects
     a displayed string's coordinates within a window and makes operations such
     as moving, erasing, and overwriting strings easier.
 
+    A string is not written to the window by default. The calling code must
+    manually call the write method.
+
     """
-    def __init__(self, curses, window, string, y, x, attr=0):
+    def __init__(self, curses, window, string, y, x, attr=None):
         """
         Constructor.
 
         Args:
             curses: A curses library module namespace or the CursesWrapper.
                 Necessary for the use of string styling contstants.
-            window (curses.newwin): A raw curses window, although not
-                necessarily an abstracted soundcurses.curses.LayoutWindow. The
-                extra interface isn't needed but passing one in won't affect
-                operations.
+            window (curses.newwin): A curses window wrapper. Must have wrapper
+                interface with the lines and cols getter properties.
             string: (string)
-            y (int): The y-coord at which to write string.
-            x (int): The x-coord at which to write string.
+            y (int): The y-coord at which to initially write string.
+            x (int): The x-coord at which to initially write string.
             attr (int): A curses attribute integer. Each bit represents a style.
                 Ex: curses.A_BOLD
 
         Raises:
             ValueError
         """
-        # Validation. Ensure y and x do not exceed window bounds.
-        y = int(y)
-        x = int(x)
-        window_dimensions = window.getmaxyx()
-        if y > window_dimensions[0] or x > window_dimensions[1]:
+        # Validate arguments.. Ensure y and x do not exceed window bounds.
+        if y > window.lines or x > window.cols:
             raise ValueError('String coords exceed window bounds.')
+        if attr == None:
+            attr = curses.A_NORMAL
+
         self._coord_x = x
         self._coord_y = y
         self._curses = curses
         self._is_written = False
-        self._string = str(string)
+        self._string = string
         self._window = window
-
         self.attr = attr
 
     def __len__(self):
+        """
+        Implement the length interface method for use with len().
+
+        """
         return len(self._string)
 
     @property
     def attr(self):
+        """
+        Get the current string's curses attribute byte sequence.
+
+        """
         return self._attr
 
     @attr.setter
     def attr(self, attr):
         """
-        Set string curses attributes.
+        Set the current string's curses attribute byte sequence.
 
-        If string has been written, erase and rewrite. Overwrite current string
+        If string has already been written, alter it. Overwrite current string
         attributes if any.
 
         """
-        self._attr = int(attr)
+        self._attr = attr
         if self._is_written:
             self._window.chgat(
                 self._coord_y,
@@ -909,10 +942,8 @@ class CursesString:
         If string is currently written, erase and rewrite in new location.
 
         """
-        y = int(y)
-        x = int(x)
+        # Inelegant. erase() needs old coords, write() needs new ones.
         if self._is_written:
-            # erase() needs old coords, write() needs new ones.
             self.erase()
             self._coord_y = y
             self._coord_x = x
@@ -923,7 +954,7 @@ class CursesString:
 
     def style_bold(self):
         """
-        Set the string attribute to bold style.
+        Set the string curses attribute to bold style.
 
         Overwrite current string attributes if any.
 
@@ -932,7 +963,7 @@ class CursesString:
 
     def style_dim(self):
         """
-        Set the string attribute to bold style.
+        Set the string curses attribute to bold style.
 
         Overwrite current string attributes if any.
 
@@ -941,7 +972,7 @@ class CursesString:
 
     def style_normal(self):
         """
-        Set the string attribute to no style.
+        Set the string curses attribute to no style.
 
         Overwrite current string attributes if any.
 
@@ -950,7 +981,7 @@ class CursesString:
 
     def style_reverse(self):
         """
-        Set the string attribute to reverse style.
+        Set the string curses attribute to reverse style.
 
         Overwrite current string attributes if any.
 
@@ -960,7 +991,7 @@ class CursesString:
     @property
     def value(self):
         """
-        Return the internal string's value.
+        Get the internal string's value.
 
         """
         return self._string
@@ -968,6 +999,9 @@ class CursesString:
     def write(self):
         """
         Write the string to the window.
+
+        Curses does not care if string is re-written over identical string so no
+        is_written check is performed.
 
         """
         self._window.addstr(
@@ -979,21 +1013,38 @@ class CursesString:
 
     @property
     def x(self):
+        """
+        Get the x-coordinate of window at which string is or will be written.
+
+        """
         return self._coord_x
 
     @property
     def y(self):
+        """
+        Get the y-coordinate of window at which string is or will be written.
+
+        """
         return self._coord_y
 
 
 class CursesStringFactory:
     """
-    Class to hide creation of CursesString classes at runtime.
+    A class to hide creation details of CursesString classes at runtime.
 
     """
+
     def __init__(self, curses):
+        """
+        Constructor.
+
+        """
         self._curses = curses
 
-    def create_string(self, window, string, y, x, attr=0):
+    def create_string(self, window, string, y, x, attr=None):
+        """
+        Create a new CursesString instance.
+
+        """
         return CursesString(self._curses, window, string, y, x, attr)
 
