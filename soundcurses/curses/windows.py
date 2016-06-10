@@ -466,15 +466,6 @@ class NavRegion:
         """
         item.style_reverse()
 
-    def highlight_next(self):
-        """
-        Highlight the next navigation item.
-
-        """
-        self._currently_highlighted_item.style_normal()
-        self._currently_highlighted_item = next(self._highlighted_item_cycle)
-        self._set_highighted_style(self._currently_highlighted_item)
-
     def highlight_item(self, item_string):
         """
         Highlight a specific nav item.
@@ -496,6 +487,15 @@ class NavRegion:
         for item in self._highlighted_item_cycle:
             if item.string == self._currently_highlighted_item.string
             break
+
+    def highlight_next(self):
+        """
+        Highlight the next navigation item.
+
+        """
+        self._currently_highlighted_item.style_normal()
+        self._currently_highlighted_item = next(self._highlighted_item_cycle)
+        self._set_highighted_style(self._currently_highlighted_item)
 
 
 class ContentWindow(LayoutWindow):
