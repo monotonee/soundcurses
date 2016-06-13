@@ -24,6 +24,11 @@ class CursesScreen:
             windows.
     """
 
+    RENDER_LAYER_HIDDEN = 0
+    RENDER_LAYER_BASE = 1
+    RENDER_LAYER_REGIONS = 2
+    RENDER_LAYER_MODALS = 3
+
     def __init__(self, curses, render_queue, signal_rendered, *args):
         self._curses = curses
         self._last_render_timestamp = 0
@@ -78,17 +83,13 @@ class CursesScreen:
             self._render_queue.remove(window)
         self._force_touch_all()
 
-    @property
-    def last_render_timestamp(self):
-        return self._last_render_timestamp
+    def add_window(self, window):
+        """
+        Add a new window to the screen.
 
-    def add_window(self, new_window):
-        """ Add a new window to the screen.
-
-         """
-        new_window.signal_layer_change.connect(
-            self._handle_window_layer_change)
-        self._windows.append(new_window)
+        """
+        window.signal_layer_change.connect(self._handle_window_layer_change)
+        self._windows.append(window)
 
     @property
     def cols(self):
@@ -102,8 +103,28 @@ class CursesScreen:
         self._curses.destroy()
 
     @property
+    def last_render_timestamp(self):
+        return self._last_render_timestamp
+
+    @property
     def lines(self):
         return self._curses.LINES
+
+    def remove_window(self, window):
+        """
+        Remove a window from the screen.
+
+        The removed window, if still referenced somewhere, will no longer be
+        rendered for any reason.
+
+        List item comparisons apparently use identity first and equality second.
+
+        See: http://stackoverflow.com/a/28562780
+
+        """
+        window.signal_layer_change.disconnect(self._handle_window_layer_change)
+        self._windows.remove(window)
+        self._render_queue.remove(window)
 
     def render(self):
         """ Pushes window state to curses virtual screen and then renders
@@ -208,6 +229,12 @@ class WindowRenderQueue:
         else:
             self._queue[window.render_layer] = {window}
 
+    def clear(self):
+        """ Empty the queue.
+
+        """
+        self._queue.clear()
+
     def remove(self, window):
         """ Remove a window from the queue if found.
 
@@ -227,8 +254,18 @@ class WindowRenderQueue:
         for empty_render_layer in empty_render_layers:
             del self._queue[empty_render_layer]
 
-    def clear(self):
-        """ Empty the queue.
+    # @property
+    # def top_render_layer(self):
+        # """
+        # Get the highest render layer integer.
 
-        """
-        self._queue.clear()
+        # Render layers are defined by integers. This method returns the highest
+        # integer currently present in render layer hierarchy (the queue). SInce
+        # the internal queue is keyed by render layer, return the highest queue
+        # key.
+
+        # Since render layers are deleted when empty, this will only compare
+        # layers occupied by one or more windows.
+
+        # """
+        # return max(self._queue.keys())

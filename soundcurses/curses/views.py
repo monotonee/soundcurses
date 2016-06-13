@@ -1,6 +1,6 @@
-""" This module defines view classes that are designed to expose coarse
+"""
+This module defines view classes that are designed to expose coarse
 interfaces to controller classes for the manipulation of the curses TUI.
-
 
 """
 
@@ -13,7 +13,7 @@ class MainView:
     """
 
     def __init__(self, input_source, screen, model,
-        window_status, window_nav, window_content, window_modal):
+        region_status, region_nav, region_content):
         """ Constructor.
 
         input_source - Provides an interface for receiving input events from
@@ -25,10 +25,9 @@ class MainView:
         self._input_source = input_source
         self._model = model
         self._screen = screen
-        self._window_content = window_content
-        self._window_status = window_status
-        self._window_modal = window_modal
-        self._window_nav = window_nav
+        self._region_content = region_content
+        self._region_status = region_status
+        self._region_nav = region_nav
 
         self._subscribe_to_model()
 
@@ -47,7 +46,7 @@ class MainView:
         Respond to an update of the current user data.
 
         """
-        self._window_status.username = self._model.current_user.username
+        self._region_status.username = self._model.current_user.username
 
     def _handle_current_track_set_change(self, **kwargs):
         """

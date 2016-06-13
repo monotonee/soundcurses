@@ -224,7 +224,7 @@ class NoUsernameState(BaseState):
             self._controller.stop_application()
         elif action == self._input_mapper.ACTION_ENTER_USERNAME:
             self._prompt_username()
-        elif action == self._input_mapper.ACTION_HELP
+        elif action == self._input_mapper.ACTION_HELP:
             pass
 
     def run_interval_tasks(self):

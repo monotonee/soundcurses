@@ -1,5 +1,12 @@
-""" Module that defines wrapper classes designed to abstract raw curses windows
-and to be passed to higher-level classes.
+"""
+Module that defines wrapper classes designed to abstract raw curses windows
+and to be passed to higher-level view classes.
+
+The basic curses window objects are wrapped with a few helper methods and a
+layering system used by the CursesScreen instance.
+
+Regions are higher-level abstractions than windows and represent display regions
+in the view. The regions are the interface with which the iew object interacts.
 
 """
 
@@ -18,9 +25,13 @@ class CursesWindow:
 
     """
 
-    def __init__(self, window, signal_layer_change, screen, render_layer=None):
+    def __init__(self, window, screen, signal_layer_change, render_layer=None):
         """
         Constructor.
+
+        Args:
+            screen (CursesScreen): Necessary for the use of render layer
+                constants.
 
         """
         # Validate arguments.
@@ -28,9 +39,9 @@ class CursesWindow:
         if render_layer == None:
             render_layer = screen.RENDER_LAYER_BASE
 
-        self._curses = curses
         self._render_layer_current = render_layer
         self._screen = screen
+        self._window = window
         self.render_layer_default = render_layer
         self.signal_layer_change = signal_layer_change
 
@@ -55,7 +66,7 @@ class CursesWindow:
         Change render layer and emit appropriate signal.
 
         """
-        render_layer_delta = int(new_render_layer) - self._render_layer_current
+        render_layer_delta = new_render_layer - self._render_layer_current
         self._render_layer_current = new_render_layer
         self.signal_layer_change.emit(
             window=self, delta=render_layer_delta)
@@ -113,115 +124,49 @@ class CursesWindow:
         self._change_render_layer(self.render_layer_default)
 
 
-# class LayoutWindow():
-    # """
-    # Defines a base class that encapsulates a layout region.
+class CursesWindowFactory:
+    """
+    A class to hide the creation details of CursesWindow objects at runtime.
 
-    # Must be passed to the curses screen object in order to be rendered.
+    """
 
-    # """
+    def __init__(self, curses, screen, signalslot):
+        """
+        Constructor.
 
-    # RENDER_LAYER_HIDDEN = 0
-    # RENDER_LAYER_BASE = 1
+        """
+        self._curses = curses
+        self._screen = screen
+        self._signalslot = signalslot
+        self._signal_layer_change_args = ['window', 'delta']
 
-    # def __init__(self, window, signal_layer_change):
-        # """
-        # Constructor.
+    def create_window(self, lines, cols, y, x, render_layer=None):
+        """
+        Create and return a new CursesWindow instance.
 
-        # _curses - The curses library interface. Necessary for many window
-            # config tasks such as the utilization of constants, toggling
-            # curses.echo()/curses.noecho(), etc.
-        # _window - A raw curses window object.
-        # render_layer_default - Ranges from 0 (lowest) to integer n (higher).
-            # Layers are rendered from lowest to highest. Windows on the same
-            # render layer will be rendered in arbitrary order. Attribute is
-            # public so that callers can "reset" _render_layer_current through
-            # render_layer property if needed.
+        The curses library will raise an exception if window size is larger than
+        available screen dimensions.
 
-        # """
+        """
+        return CursesWindow(
+            self._curses.newwin(lines, cols, y, x),
+            self._screen,
+            self._signalslot.Signal(args=self._signal_layer_change_args),
+            render_layer)
 
-        # # Declare instance attributes.
-        # self._render_layer_current = self.RENDER_LAYER_BASE
-        # self._window = window
-        # self.render_layer_default = self.RENDER_LAYER_BASE
-        # self.signal_layer_change = signal_layer_change
+    def wrap_window(self, window, render_layer=None):
+        """
+        Create a new CursesWindow with the passed window.
 
-    # def __getattr__(self, name):
-        # """
-        # According to my current knowledge, allows attribute access
-        # passthrough to underlying window object. If attribute is nonexistent,
-        # AttributeError is raised by getattr() and allowed to bubble.
-        # """
-        # return getattr(self._window, name)
+        Instead of creating a new curses window with curses.newwin, use the
+        passed window object.
 
-    # def _change_render_layer(self, new_render_layer):
-        # """
-        # Change render layer instance attribute and emit signal.
-        # """
-        # render_layer_delta = int(new_render_layer) - self._render_layer_current
-        # self._render_layer_current = new_render_layer
-        # self.signal_layer_change.emit(
-            # window=self, delta=render_layer_delta)
-
-    # @property
-    # def cols(self):
-        # """
-        # Implement abstract method.
-
-        # """
-        # return self._window.getmaxyx()[1]
-
-    # def hide(self):
-        # """
-        # Implement abstract method.
-
-        # """
-        # self._change_render_layer(self.RENDER_LAYER_HIDDEN)
-
-    # @property
-    # def lines(self):
-        # """
-        # Implement abstract method.
-
-        # """
-        # return self._window.getmaxyx()[0]
-
-    # @property
-    # def render_layer(self):
-        # """
-        # Implement abstract method.
-
-        # """
-        # return self._render_layer_current
-
-    # def show(self):
-        # """
-        # Implement abstract method.
-
-        # """
-        # self._change_render_layer(self.render_layer_default)
-
-
-# class BackgroundRegion:
-    # """
-    # A class that represents the background region of the screen.
-
-    # The background region encompasses the entirety of the screen and usually
-    # remains blank. It occupies the base render layer and therefore obscures
-    # any windows placed on lower render layers.
-
-    # Note the render layer value. This region must be rendered first since it
-    # lies behind all other regions. Render_layer value remains at the default 0.
-    # If rendered after other regions, this region will overlap them, resulting in
-    # a blank screen.
-
-    # """
-    # def __init__(self, window):
-        # """
-        # Constructor.
-
-        # """
-        # self._window = window
+        """
+        return CursesWindow(
+            window,
+            self._screen,
+            self._signalslot.Signal(args=self._signal_layer_change_args),
+            render_layer)
 
 
 class HeaderRegion:
@@ -261,8 +206,6 @@ class HeaderRegion:
 
         """
         self._window.bkgd(' ', self._curses.A_REVERSE)
-        self.render_layer_default = self.RENDER_LAYER_BASE + 1
-        self._render_layer_current = self.RENDER_LAYER_BASE + 1
 
     def _write_text(self):
         """
@@ -275,7 +218,8 @@ class HeaderRegion:
         """
         self._window.addstr(0, 0, 'soundcurses - version 0.0.1')
         help_string = 'F1: help'
-        self._window.addstr(0, self.cols - len(help_string) - 1, help_string)
+        self._window.addstr(0, self._window.cols - len(help_string) - 1,
+            help_string)
 
 
 class StatusRegion:
@@ -375,6 +319,7 @@ class NavRegion:
         self._highlighted_item_cycle = None
         self._nav_items = collections.OrderedDict()
         self._string_factory = string_factory
+        self._window = window
 
         self._configure()
         self._init_items()
@@ -417,11 +362,11 @@ class NavRegion:
         # For now, ignore very narrow edge case window sizes.
         # TEMPORARILY assume that there are more available cols than characters.
         # Remove two cols from available cols for edge spacing/border.
-        spacing_cols = math.floor(
-            (self.cols - 2 - total_char_count) / (len(self._nav_items) - 1))
+        spacing_cols = math.floor((self._window.cols - 2 - total_char_count) \
+            / (len(self._nav_items) - 1))
 
         # Determine coords at which to begin writing.
-        y_coord = (self._window.lines - 1) / 2
+        y_coord = math.floor((self._window.lines - 1) / 2)
         x_coord = 1
 
         # Create nav item string objects with spaced coords and write to window.
@@ -485,8 +430,8 @@ class NavRegion:
 
         # "Fast-forward" cycle to match currently-highlighted item.
         for item in self._highlighted_item_cycle:
-            if item.string == self._currently_highlighted_item.string
-            break
+            if item.string == self._currently_highlighted_item.string:
+                break
 
     def highlight_next(self):
         """
@@ -511,7 +456,14 @@ class ContentRegion:
         """
         Constructor.
 
+        Raises:
+            ValueError: If window is too small for content.
+
         """
+        # Validate arguments.
+        if window.lines < 1:
+            raise ValueError('Window is to small for region content.')
+
         self._curses = curses
         self._window = window
 
@@ -527,75 +479,399 @@ class ContentRegion:
             self._curses.ACS_HLINE, self._curses.ACS_HLINE, ' ', ' ')
 
 
-class ModalWindow(AbstractCursesWindow):
+class ModalRegionBase:
     """
-    A wrapper for a curses window that exposes modal-like behavior.
+    A class representing a region that exposes modal-like behavior.
 
     This is a base class that provides common functionality for more specialized
-    modal windows.
+    modal windows. Note that ModalRegion differs from other region classes in
+    one main way: it creates its own curses window per instance rather than
+    accepting a window argument in its constructor. Modal "windows" such as
+    alerts or popups are temporary in nature and therefore ModalRegion instances
+    expose a destroy method.
+
+    Attributes:
+        WIN_MAX_PERCENT (float): The max size of the modal window relative to
+            the screen dimensions.
+        WIN_MIN_PERCENT (float): The min size of the modal window relative to
+            the screen dimensions.
 
     """
-    def __int__(self, curses, signal_layer_change):
+
+    WIN_MAX_PERCENT = 0.9
+    WIN_MIN_PERCENT = 0.4
+
+    def __int__(self, curses, screen, window_factory):
         """
         Constructor.
 
+        Args:
+            screen (CursesScreen): Necessary so that the new curses windows
+                created by instances of this class can be added to render queue.
+
         """
         self._curses = curses
+        self._screen = screen
         self._window = None
-        self.signal_layer_change = signal_layer_change
+        self._window_factory = window_factory
+
+        self._init_window()
+
+    @staticmethod
+    def _get_centered_coords(self, avail_lines, avail_cols,
+        target_lines, target_cols):
+        """
+        Return a tuple (y, x) that will result in a centered object.
+
+        This function takes two sets of dimensions. The avail_lines and
+        avail_cols arguments are the dimensions of the object in which target
+        object will be centered.
+
+        The target_lines and target_cols arguments are the dimensions of the
+        object that needs to be centered within the available lines and columns.
+
+        The returned coordinate tuple contains the coordinates within the
+        containing object at which the upper left corner of the target object
+        should be placed for it to be centered within the available dimensions.
+
+        The returned centered coordinates may sometimes result in an imperfect
+        centering solution. For example, if one tries to center a single line
+        within a two-line container, one line will be left over. In these cases,
+        the extra line will be added underneath the target object.
+
+        Args:
+            avail_lines (int): The number of lines of containing box.
+            avail_cols (int): The number of cols in containing box.
+            target_lines (int): The number of lines in box to be centered.
+            target_cols (int): THe number of lines in box to be centered.
+
+        Raises:
+            ValueError: If target dimension is larger than avail dimension.
+
+        """
+        # Validate arguments.
+        if target_lines > avail_lines:
+            raise ValueError(
+                'Cannot center object with more lines than its container.')
+        if target_cols > avail_cols:
+            raise ValueError(
+                'Cannot center object with more columns than its container.')
+
+        centered_y = math.floor((avail_lines - target_lines) / 2)
+        centered_x = math.floor((avail_cols - target_cols) / 2)
+        return (centered_y, centered_x)
+
+    def _init_window(self):
+        """
+        Initialize the curses window instance attribute.
+
+        On class instantiation, this method creates a curses window of a
+        default, minimum size.
+
+        """
+        dim_y = self._min_lines
+        dim_x = self._min_cols
+        coord_y, coord_x = self._get_centered_coords(
+            self._curses.LINES, self._curses.COLS,
+            dim_y, dim_x)
+        self._window = self.window_factory.create_window(
+            dim_y, dim_x, coord_y, coord_x, self._screen.RENDER_LAYER_MODALS)
+        self._screen.add_window(self._window)
 
     @property
-    def cols(self):
+    def _max_cols(self):
         """
-        Return the window's x-axis dimension in columns.
+        Get the number of columns in a window of maximum size.
+
+        """
+        return math.floor(self._curses.COLS * self.WIN_MAX_PERCENT)
+
+    @property
+    def _max_lines(self):
+        """
+        Get the number of lines in a window of maximum size.
+
+        """
+        return math.floor(self._curses.LINES * self.WIN_MAX_PERCENT)
+
+    @property
+    def _min_cols(self):
+        """
+        Get the number of columns in a window of minimum size.
+
+        """
+        return math.floor(self._curses.COLS * self.WIN_MIN_PERCENT)
+
+    @property
+    def _min_lines(self):
+        """
+        Get the number of lines in a window of minimum size.
+
+        """
+        return math.floor(self._curses.LINES * self.WIN_MIN_PERCENT)
+
+    @property
+    def _percent_cols(self):
+        """
+        Get the percent of total screen columns currently used by window.
 
         Returns:
-            int: The number of columns.
+            float: The total screen columns muliplier, rounded to single
+                digit after decimal.
 
         """
-        return self._window.getmaxyx()[1]
+        return round(self._window.cols / self._curses.COLS, 1)
+
+    @property
+    def _percent_lines(self):
+        """
+        Get the percent of total screen lines currently used by window.
+
+        Returns:
+            float: The total screen lines muliplier, rounded to single
+                digit after decimal.
+
+        """
+        return round(self._window.lines / self._curses.LINES, 1)
+
+    def _center_window(self):
+        """
+        Centers the window in the screen if necessary.
+
+        This method can be called, for example, if the window has been resized.
+
+        """
+        centered_coords = self._get_centered_coords(
+            self._curses.LINES, self._curses.COLS,
+            self._window.lines, self._window.cols)
+        if self._window.getbegyx() != centered_coords:
+            self._window.mvwin(*centered_coords)
+
+    def destroy(self):
+        """
+        Remove the region from the screen permanently.
+
+        """
+        self.hide()
+        self._screen.remove_window(self._window)
 
     def hide(self):
         """
         Set current render layer to hidden.
 
-        When window is passed to rendering queue, will ensure that window is not
-        visible upon next physical render.
-
-        This method was defined so that calling code does not necessarily have
-        to be aware of class constant attributes such as RENDER_LAYER_HIDDEN and
-        may use this shorthand method over directly accessing render_layer
-        attribute.
         """
-        self._change_render_layer(self.RENDER_LAYER_HIDDEN)
-
-    @property
-    def lines(self):
-        return self._window.getmaxyx()[0]
-
-    @property
-    def render_layer(self):
-        return self._render_layer_current
+        self._window.hide()
 
     def show(self):
         """
         Set window's render layer to default.
 
-        Often called to reverse the effects of a call to hide().
         """
-        self._change_render_layer(self.render_layer_default)
+        self._window.show()
 
 
-class ModalWindow(LayoutWindow):
-    """ Manages the display and operation of a modal window on a rendering layer
-    that will place it on top of existing windows. Hidden by default.
-
-    Note that window.addstr() and/or window.getstr() contains implicit refresh.
+class ModalRegionPrompt(ModalRegionBase):
+    """
+    A class that represents a modal prompt "window."
 
     """
-    def __init__(self, window, signal_layer_change,
-        curses, string_factory, animation):
-        super().__init__(window, signal_layer_change)
+    def __init__(self, curses, screen, window_factory,
+        string_factory, prompt_string):
+        """
+        Constructor.
+
+        """
+        super().__init__(curses, screen, window_factory)
+
+        self._prompt_string = prompt_string
+
+        self._string_factory = string_factory
+
+        self._init_prompt_string()
+
+        self._init_window()
+
+        self._configure()
+
+    def _configure(self):
+        """
+        Configure region/window properties.
+
+        Sets initial window state such as borders, colors, initial content, etc.
+        Designed to be called only during object construction.
+
+        """
+        self._window.border()
+
+    def _erase(self):
+        """
+        Clear all window content and re-draw border.
+
+        """
+        self._window.erase()
+        self._configure()
+
+    def _init_window(self):
+        """
+        Create and configure window based on prompt string.
+
+        Ensure that the prompt string passed into the constructor can be
+        completely displayed in the available window space. If default window
+        size is too small, determine the new minimum size into which the string
+        will fit and resize the window.
+
+        Find the centered coordinates of the string in the window and create a
+        new string object.
+
+        """
+        pass
+
+    def _init_prompt_string(self):
+        """
+        Validate string length, create string, and resize window if necessary.
+
+        For instance, ensure that the prompt string is not too long to fit in
+        a window of maximum size. Remember that space must be reserved for the
+        actual prompt line into which user input is typed as well as space for
+        the window's borders. Lines: subtract two for border and one for prompt.
+        Columns: subtrat two for border.
+
+        If string is too long for current window size, check if resize operation
+        would allow it to fit. If a suitable size is found, resize window.
+        Determine string coordinates and create string object.
+
+        I'm not happy with the brute-force, iterative solution here. I could
+        attempt a more intelligent solution using word counts, character counts,
+        and guessing, but premature optimization is the root of all evil. One
+        main problem is that it's not an issue of raw character count. The text
+        wrapping breaks on words and/or hyphens and other rules. Therefore,
+        only the textwrap library can answer if a given string will fit into a
+        given number of lines.
+
+        Raises:
+            ValueError: If string is too long to fit in window even at max size.
+
+        """
+        # If string too large for max window, no sense in continuing.
+        max_avail_lines = self._max_lines - 3
+        max_avail_cols = self._max_cols - 2
+        max_lines_list = textwrap.wrap(
+            self._prompt_string, width=max_avail_cols)
+        if len(max_lines_list) > max_avail_lines:
+            raise ValueError('Prompt string length exceeds window bounds.')
+
+        # If prompt can fit into window at current size, it avoids a resize.
+        current_avail_lines = self._window.lines - 3
+        current_avail_cols = self._window.cols - 2
+        current_lines_list = textwrap.wrap(
+            self._prompt_string, width=current_avail_cols)
+
+        # If string doesn't fit current size, find a size that does and resize.
+        if len(current_lines_list) > current_avail_lines:
+            multiplier_step = 0.1
+            multiplier = self._percent_cols + multiplier_step
+            while multiplier <= self.WIN_MAX_PERCENT:
+                test_lines = math.floor(self._curses.LINES * multiplier)
+                test_avail_lines = test_lines - 3
+                test_cols = math.floor(self._curses.COLS * multiplier)
+                test_avail_cols = test_cols - 2
+                test_line_list = textwrap.wrap(
+                    self._prompt_string, width=test_avail_cols)
+                if len(test_line_list) > test_avail_lines:
+                    multiplier += multiplier_step
+                else:
+                    self._window.resize(test_lines, test_cols)
+                    self._center_window()
+                    break
+
+        # Create string and write.
+        avail_lines = self._window.lines - 3
+        avail_cols = self._window.cols - 2
+        lines_list = textwrap.wrap(self._prompt_string, width=avail_cols)
+        string_y, string_x = self._get_centered_coords(
+            self._window.lines - 3, self._window.cols - 2,
+            len(lines_list), avail_cols)
+        self._prompt_string = self._string_factory.create_string(
+            self._window, '\n'.join(lines_list), string_y, string_x)
+        self._prompt_string.write()
+
+    # def _get_centered_coords(self, string):
+        # """
+        # Return a tuple of coordinates (y, x) that will place given string at
+        # center of window.
+
+        # Args:
+            # string (str): A single-line string.
+
+        # Raises:
+            # ValueError: If string is too long for window dimensions.
+
+        # """
+        # if len(string) > self.cols - 2:
+            # raise ValueError('String length exceeds window bounds')
+
+        # coord_x = round((self.cols - len(string)) / 2)
+        # coord_y = round((self.lines - 1) / 2)
+        # return (coord_y, coord_x)
+
+    def prompt(self):
+        """
+        Clears window and displays a prompt for input to the user. Returns
+        the entered string. Currently, the prompt string is only a single line
+        and is rendered in the center of the window with the user input echoed
+        below it.
+
+        Warning: window.addstr() and/or window.getstr() implicitly call screen
+        refreshes.
+
+        Note that this converts the bytes object returned by window.getstr()
+        into a string using the encoding contained in the curses object. In this
+        instance, I favor fully abstracting curses' idiosyncrasies rather than
+        forcing the higher level abstractions to handle all the various forms
+        of return values.
+
+        """
+        # Throw an exception if prompt is called while window is hidden.
+        if self._render_layer_current == self.RENDER_LAYER_HIDDEN:
+            raise RuntimeError('Cannot issue prompt while window is hidden.')
+
+        # Validate prompt string. Subtract two from columns to account for
+        # window border.
+        prompt_string_length = len(prompt_string)
+        if prompt_string_length > self.cols - 2:
+            raise ValueError('Prompt string exceeds window bounds.')
+
+        # Draw prompt string. Prompt string and input line span two window lines
+        # in total. In order for both prompt string and input line to appear
+        # centered in modal, therefore, both lines must be shifted upward on y
+        # axis by two lines.
+        self.erase()
+        prompt_string_coord_y, prompt_string_coord_x = \
+            self._get_centered_coords(prompt_string)
+        curses_prompt_string = self._string_factory.create_string(
+            self._window,
+            prompt_string,
+            prompt_string_coord_y,
+            prompt_string_coord_x)
+        curses_prompt_string.write()
+
+        # Start input polling. User's input will be displayed directly below
+        # prompt.
+        self._curses.echo()
+        input_string = self._window.getstr(
+            prompt_string_coord_y + 1, prompt_string_coord_x)
+        self._curses.noecho()
+
+        return input_string.decode(self._curses.character_encoding)
+
+
+class ModalLoadingAnim(ModalRegionBase):
+    """
+    A class that represents a modal loading animation "window."
+
+    """
+    def __init__(self, curses, screen, window_factory, string_factory):
+        super().__init__(curses, screen, window_factory)
 
         self._current_animation = animation
         self._current_spinner = None
@@ -738,7 +1014,7 @@ class ModalWindow(LayoutWindow):
         self.erase()
 
 
-class MessageModalWindow(LayoutWindow):
+class MessageModalWindow:
     """ Manages the display and operation of a modal window on a rendering layer
     that will place it on top of existing windows. Hidden by default.
 
@@ -834,25 +1110,28 @@ class MessageModalWindow(LayoutWindow):
         return self.cols
 
 
-
 class ModalWindowFactory:
     """
-    A class the allows the runtime creation of modal windows.
+    A class that hides creation details of modal windows at runtime.
 
     """
-    def __init__(self, curses, signal_layer_change,
-        string_factory, spinner_animation):
+    def __init__(self, curses, screen, window_factory, string_factory):
         """
         Constructor.
 
         """
         self._curses = curses
+        self._screen = screen
         self._string_factory = string_factory
-        self._signal_layer_change = signal_layer_change
-        self._spinner_animation = spinner_animation
+        self._window_factory = window_factory
 
-    def create_prompt_modal(self):
-        pass
+    def create_prompt_modal(self, prompt_string):
+        """
+        Create and return a new instance of a prompt modal.
+
+        """
+        return ModalRegionPrompt(self._curses, self._screen,
+            self._window_factory, self._string_factory, prompt_string)
 
     def create_message_modal(self, message_string):
         """
@@ -874,43 +1153,6 @@ class ModalWindowFactory:
         attempt to anticipate the message window's internal requirements.
 
         """
-        # Determine minimum window size.
-        min_window_percent = 0.4
-        min_dim_cols = self._curses.COLS * min_window_percent
-        min_dim_lines = self._curses.LINES * min_window_percent
-
-
-        # Validate message length.
-        min_margin = 0.2
-        max_win_cols = self._curses.COLS - (self._curses.COLS * min_margin)
-        avail_cols = max_win_cols - (max_win_cols * MessageModalWindow.PADDING)
-        max_win_lines = self._curses.LINES - (self._curses.LINES * min_margin)
-        avail_lines = max_win_lines \
-            - (max_win_lines * MessageModalWindow.PADDING)
-
-        max_lines_list = textwrap.wrap(mesage_string, width=avail_cols)
-        if len(max_lines_list) > avail_lines:
-            raise ValueError('Message string will not fit in window.')
-
-        # Calculate window size. If message fits into a window half of max size,
-        # do it. Otherwise, create window at max size.
-        window_cols = avail_cols
-        window_lines = avail_lines
-        test_lines_list = textwrap.wrap(mesage_string, width=(avail_cols / 2))
-        if len(test_lines_list) <= avail_lines:
-            window_cols /= 2
-            window_lines /= 2
-
-        return MessageModalWindow(
-            self._curses.newwin(
-                window_lines,
-                window_cols,
-                (self._curses.LINES - window_lines) / 2,
-                (self._curses.COLS - window_cols) / 2),
-            self._signal_layer_change,
-            self._string_factory)
-
-    def create_text_modal(self):
         pass
 
 
