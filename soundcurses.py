@@ -49,24 +49,27 @@ def main(stdscr):
 
     # Compose header region.
     header_window = window_factory.create_window(
-        1, curses_wrapper.COLS, y_coord_offset,
-        0, curses_screen.RENDER_LAYER_REGIONS)
+        1, curses_wrapper.COLS,
+        y_coord_offset, 0,
+        curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(header_window)
     header_region = windows.HeaderRegion(header_window, curses_wrapper)
     y_coord_offset += header_window.lines
 
     # Compose status region.
     status_window = window_factory.create_window(
-        3, curses_wrapper.COLS, y_coord_offset,
-        0, curses_screen.RENDER_LAYER_REGIONS)
+        3, curses_wrapper.COLS,
+        y_coord_offset, 0,
+        curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(status_window)
     status_region = windows.StatusRegion(status_window, string_factory)
     y_coord_offset += status_window.lines
 
     # Compose nav region.
     nav_window = window_factory.create_window(
-        3, curses_wrapper.COLS, y_coord_offset,
-        0, curses_screen.RENDER_LAYER_REGIONS)
+        3, curses_wrapper.COLS,
+        y_coord_offset, 0,
+        curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(nav_window)
     nav_region = windows.NavRegion(nav_window, string_factory)
     y_coord_offset += nav_window.lines
@@ -74,14 +77,10 @@ def main(stdscr):
     # Compose content region.
     content_window = window_factory.create_window(
         curses_wrapper.LINES - y_coord_offset, curses_wrapper.COLS,
-        y_coord_offset, 0, curses_screen.RENDER_LAYER_REGIONS)
+        y_coord_offset, 0,
+        curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(content_window)
     content_region = windows.ContentRegion(content_window, curses_wrapper)
-
-    # Create reusable modal window 40% of screen size, centered in screen.
-    # Is hidden by default.
-    # simple_spinner_animation = effects.SimpleSpinner(
-        # screen)
 
     # Compose input source.
     input_source = components.InputSource(curses_wrapper, stdscr_window)
@@ -108,13 +107,27 @@ def main(stdscr):
         signalslot.Signal())
 
     # Compose view(s).
+    modal_factory = windows.ModalRegionFactory(
+        curses_wrapper,
+        curses_screen,
+        window_factory,
+        string_factory)
     main_view = views.MainView(
         input_source,
         curses_screen,
         model,
         status_region,
         nav_region,
-        content_region)
+        content_region,
+        modal_factory)
+
+    main_view.render()
+    import time
+    time.sleep(2)
+    main_view.prompt_username()
+    main_view.render()
+    time.sleep(2)
+
 
     # Compose controllers.
     # input_mapper = user_input.UserInputMapper()

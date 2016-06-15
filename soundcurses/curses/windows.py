@@ -501,7 +501,7 @@ class ModalRegionBase:
     WIN_MAX_PERCENT = 0.9
     WIN_MIN_PERCENT = 0.4
 
-    def __int__(self, curses, screen, window_factory):
+    def __init__(self, curses, screen, window_factory):
         """
         Constructor.
 
@@ -518,7 +518,7 @@ class ModalRegionBase:
         self._init_window()
 
     @staticmethod
-    def _get_centered_coords(self, avail_lines, avail_cols,
+    def _get_centered_coords(avail_lines, avail_cols,
         target_lines, target_cols):
         """
         Return a tuple (y, x) that will result in a centered object.
@@ -574,7 +574,7 @@ class ModalRegionBase:
         coord_y, coord_x = self._get_centered_coords(
             self._curses.LINES, self._curses.COLS,
             dim_y, dim_x)
-        self._window = self.window_factory.create_window(
+        self._window = self._window_factory.create_window(
             dim_y, dim_x, coord_y, coord_x, self._screen.RENDER_LAYER_MODALS)
         self._screen.add_window(self._window)
 
@@ -675,22 +675,19 @@ class ModalRegionPrompt(ModalRegionBase):
     A class that represents a modal prompt "window."
 
     """
+
     def __init__(self, curses, screen, window_factory,
-        string_factory, prompt_string):
+        prompt_string, string_factory):
         """
         Constructor.
 
         """
         super().__init__(curses, screen, window_factory)
 
-        self._prompt_string = prompt_string
-
+        self._prompt_string = None
         self._string_factory = string_factory
 
-        self._init_prompt_string()
-
-        self._init_window()
-
+        self._init_prompt_string(prompt_string)
         self._configure()
 
     def _configure(self):
@@ -711,22 +708,7 @@ class ModalRegionPrompt(ModalRegionBase):
         self._window.erase()
         self._configure()
 
-    def _init_window(self):
-        """
-        Create and configure window based on prompt string.
-
-        Ensure that the prompt string passed into the constructor can be
-        completely displayed in the available window space. If default window
-        size is too small, determine the new minimum size into which the string
-        will fit and resize the window.
-
-        Find the centered coordinates of the string in the window and create a
-        new string object.
-
-        """
-        pass
-
-    def _init_prompt_string(self):
+    def _init_prompt_string(self, prompt_string):
         """
         Validate string length, create string, and resize window if necessary.
 
@@ -748,35 +730,48 @@ class ModalRegionPrompt(ModalRegionBase):
         only the textwrap library can answer if a given string will fit into a
         given number of lines.
 
+        Args:
+            prompt_string (string): The prompt string.
+
         Raises:
             ValueError: If string is too long to fit in window even at max size.
 
         """
+        # The following quantities of dimensions must be subtracted from
+        # available lines and columns. Lines: border + prompt line.
+        # Cols: border.
+        reserved_lines = 3
+        reserved_cols = 2
+
         # If string too large for max window, no sense in continuing.
-        max_avail_lines = self._max_lines - 3
-        max_avail_cols = self._max_cols - 2
-        max_lines_list = textwrap.wrap(
-            self._prompt_string, width=max_avail_cols)
+        max_avail_lines = self._max_lines - reserved_lines
+        max_avail_cols = self._max_cols - reserved_cols
+        max_lines_list = textwrap.wrap(prompt_string, width=max_avail_cols)
         if len(max_lines_list) > max_avail_lines:
             raise ValueError('Prompt string length exceeds window bounds.')
 
         # If prompt can fit into window at current size, it avoids a resize.
-        current_avail_lines = self._window.lines - 3
-        current_avail_cols = self._window.cols - 2
+        # At this point, it is a given that the prompt string is short enough to
+        # fit into at least a window of maximum size.
+        current_avail_lines = self._window.lines - reserved_lines
+        current_avail_cols = self._window.cols - reserved_cols
         current_lines_list = textwrap.wrap(
-            self._prompt_string, width=current_avail_cols)
+            prompt_string, width=current_avail_cols)
 
         # If string doesn't fit current size, find a size that does and resize.
+        # Note that this will NOT preserve any established window proportions,
+        # resetting the window dimensions to fixed percentages of the total
+        # screen size.
         if len(current_lines_list) > current_avail_lines:
             multiplier_step = 0.1
             multiplier = self._percent_cols + multiplier_step
             while multiplier <= self.WIN_MAX_PERCENT:
                 test_lines = math.floor(self._curses.LINES * multiplier)
-                test_avail_lines = test_lines - 3
+                test_avail_lines = test_lines - reserved_lines
                 test_cols = math.floor(self._curses.COLS * multiplier)
-                test_avail_cols = test_cols - 2
+                test_avail_cols = test_cols - reserved_cols
                 test_line_list = textwrap.wrap(
-                    self._prompt_string, width=test_avail_cols)
+                    prompt_string, width=test_avail_cols)
                 if len(test_line_list) > test_avail_lines:
                     multiplier += multiplier_step
                 else:
@@ -784,13 +779,14 @@ class ModalRegionPrompt(ModalRegionBase):
                     self._center_window()
                     break
 
-        # Create string and write.
-        avail_lines = self._window.lines - 3
-        avail_cols = self._window.cols - 2
-        lines_list = textwrap.wrap(self._prompt_string, width=avail_cols)
+        # Create string and write. Remember that the prompt string will be
+        # written directly above the user input (prompt) line.
+        avail_lines = self._window.lines - reserved_lines
+        avail_cols = self._window.cols - reserved_cols
+        lines_list = textwrap.wrap(prompt_string, width=avail_cols)
         string_y, string_x = self._get_centered_coords(
-            self._window.lines - 3, self._window.cols - 2,
-            len(lines_list), avail_cols)
+            avail_lines, avail_cols,
+            len(lines_list), len(lines_list[0]))
         self._prompt_string = self._string_factory.create_string(
             self._window, '\n'.join(lines_list), string_y, string_x)
         self._prompt_string.write()
@@ -831,6 +827,7 @@ class ModalRegionPrompt(ModalRegionBase):
         of return values.
 
         """
+        return False
         # Throw an exception if prompt is called while window is hidden.
         if self._render_layer_current == self.RENDER_LAYER_HIDDEN:
             raise RuntimeError('Cannot issue prompt while window is hidden.')
@@ -1110,9 +1107,9 @@ class MessageModalWindow:
         return self.cols
 
 
-class ModalWindowFactory:
+class ModalRegionFactory:
     """
-    A class that hides creation details of modal windows at runtime.
+    A class that hides creation details of modal regions at runtime.
 
     """
     def __init__(self, curses, screen, window_factory, string_factory):
@@ -1125,13 +1122,13 @@ class ModalWindowFactory:
         self._string_factory = string_factory
         self._window_factory = window_factory
 
-    def create_prompt_modal(self, prompt_string):
+    def create_prompt(self, prompt_string):
         """
         Create and return a new instance of a prompt modal.
 
         """
         return ModalRegionPrompt(self._curses, self._screen,
-            self._window_factory, self._string_factory, prompt_string)
+            self._window_factory, prompt_string, self._string_factory)
 
     def create_message_modal(self, message_string):
         """

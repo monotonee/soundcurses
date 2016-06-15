@@ -13,7 +13,7 @@ class MainView:
     """
 
     def __init__(self, input_source, screen, model,
-        region_status, region_nav, region_content):
+        region_status, region_nav, region_content, modal_factory):
         """ Constructor.
 
         input_source - Provides an interface for receiving input events from
@@ -23,11 +23,13 @@ class MainView:
 
         """
         self._input_source = input_source
+        self._modal_factory = modal_factory
+        self._modal_message = None
         self._model = model
-        self._screen = screen
         self._region_content = region_content
         self._region_status = region_status
         self._region_nav = region_nav
+        self._screen = screen
 
         self._subscribe_to_model()
 
@@ -78,15 +80,18 @@ class MainView:
         return self._screen.last_render_timestamp
 
     def prompt_username(self):
-        """ Display a modal input window into which the user will enter a
+        """
+        Display a modal input window into which the user will enter a
         valid SoundCloud username.
 
         """
-        self._window_modal.show()
-        username = self._window_modal.prompt('enter username: ')
-        self._window_modal.hide()
+        modal_prompt = self._modal_factory.create_prompt(
+            'enter username:')
+        # modal_prompt.show()
+        # username = self._window_modal.prompt('enter username: ')
+        # self._window_modal.hide()
 
-        return username
+        # return username
 
     def render(self):
         self._screen.render()
