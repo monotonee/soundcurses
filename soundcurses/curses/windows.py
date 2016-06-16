@@ -522,11 +522,52 @@ class ModalRegionBase:
 
         """
         self._curses = curses
+        self._reserved_cols = 4
+        self._reserved_lines = 4
         self._screen = screen
         self._window = None
         self._window_factory = window_factory
 
         self._init_window()
+
+    @property
+    def _avail_cols(self):
+        """
+        Get the number of available, non-reserved lines.
+
+        Returns:
+            int: The number of avaiable lines.
+
+        """
+        avail_lines, avail_cols = self._get_avail_dimensions(
+            self._window.lines, self._window.cols)
+        return avail_cols
+
+    @property
+    def _avail_lines(self):
+        """
+        Get the number of available, non-reserved lines.
+
+        Returns:
+            int: The number of avaiable lines.
+
+        """
+        avail_lines, avail_cols = self._get_avail_dimensions(
+            self._window.lines, self._window.cols)
+        return avail_lines
+
+    @property
+    def _avail_origin(self):
+        """
+        Get the origin y-coord of available space within window.
+
+        Returns:
+            tuple: Ints (y, x), the origin of available area within window.
+
+        """
+        return self._get_centered_coords(
+            self._window.lines, self._window.cols,
+            self._avail_lines, self._avail_cols)
 
     def _center_window(self):
         """
@@ -540,6 +581,31 @@ class ModalRegionBase:
             self._window.lines, self._window.cols)
         if self._window.getbegyx() != centered_coords:
             self._window.mvwin(*centered_coords)
+
+    def _get_avail_dimensions(self, lines, cols):
+        """
+        Given dimensions, return this modal region's available dimensions.
+
+        Certain lines and columns are reserved inside the window. Two each of
+        lines and columns may be reserved for the window border, for instance.
+        This method returns the writable space inside a window of the given
+        dimensions.
+
+        Note that no exceptions are thrown for invalid dimensions such as
+        negative numbers. The responsibility of validation rests with the
+        calling code.
+
+        Args:
+            lines (int): Number of lines in a window.
+            cols (int): Number of columns in a window.
+
+        Returns:
+            tuple: Tuple (lines, cols) of available dimensions.
+
+        """
+        avail_lines = lines - self._reserved_lines
+        avail_cols = cols - self._reserved_cols
+        return (avail_lines, avail_cols)
 
     @staticmethod
     def _get_centered_coords(avail_lines, avail_cols,
@@ -703,51 +769,11 @@ class ModalRegionPrompt(ModalRegionBase):
         super().__init__(curses, screen, window_factory)
 
         self._prompt_string = None
-        self._reserved_cols = 4
         self._reserved_lines = 5
         self._string_factory = string_factory
 
         self._init_prompt_string(prompt_string)
         self._configure()
-
-    @property
-    def _avail_cols(self):
-        """
-        Get the number of available, non-reserved lines.
-
-        Returns:
-            int: The number of avaiable lines.
-
-        """
-        avail_lines, avail_cols = self._get_avail_dimensions(
-            self._window.lines, self._window.cols)
-        return avail_cols
-
-    @property
-    def _avail_lines(self):
-        """
-        Get the number of available, non-reserved lines.
-
-        Returns:
-            int: The number of avaiable lines.
-
-        """
-        avail_lines, avail_cols = self._get_avail_dimensions(
-            self._window.lines, self._window.cols)
-        return avail_lines
-
-    @property
-    def _avail_origin(self):
-        """
-        Get the origin y-coord of available space within window.
-
-        Returns:
-            tuple: Ints (y, x), the origin of available area within window.
-
-        """
-        return self._get_centered_coords(
-            self._window.lines, self._window.cols,
-            self._avail_lines, self._avail_cols)
 
     def _configure(self):
         """
@@ -766,31 +792,6 @@ class ModalRegionPrompt(ModalRegionBase):
         """
         self._window.erase()
         self._configure()
-
-    def _get_avail_dimensions(self, lines, cols):
-        """
-        Given dimensions, return this modal region's available dimensions.
-
-        Certain lines and columns are reserved inside the window. Two each of
-        lines and columns may be reserved for the window border, for instance.
-        This method returns the writable space inside a window of the given
-        dimensions.
-
-        Note that no exceptions are thrown for invalid dimensions such as
-        negative numbers. The responsibility of validation rests with the
-        calling code.
-
-        Args:
-            lines (int): Number of lines in a window.
-            cols (int): Number of columns in a window.
-
-        Returns:
-            tuple: Tuple (lines, cols) of available dimensions.
-
-        """
-        avail_lines = lines - self._reserved_lines
-        avail_cols = cols - self._reserved_cols
-        return (avail_lines, avail_cols)
 
     def _init_prompt_string(self, prompt_string):
         """
