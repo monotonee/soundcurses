@@ -82,6 +82,17 @@ class CursesWindow:
         """
         return self._window.getmaxyx()[1]
 
+    @property
+    def hidden(self):
+        """
+        Returns whether or not the window is on the "hidden" render layer.
+
+        Returns:
+            Boolean: True if hidden, false otherwise.
+
+        """
+        return self._render_layer_current == self._screen.RENDER_LAYER_HIDDEN
+
     def hide(self):
         """
         Set current render layer to hidden.
@@ -517,6 +528,19 @@ class ModalRegionBase:
 
         self._init_window()
 
+    def _center_window(self):
+        """
+        Centers the window in the screen if necessary.
+
+        This method can be called, for example, if the window has been resized.
+
+        """
+        centered_coords = self._get_centered_coords(
+            self._curses.LINES, self._curses.COLS,
+            self._window.lines, self._window.cols)
+        if self._window.getbegyx() != centered_coords:
+            self._window.mvwin(*centered_coords)
+
     @staticmethod
     def _get_centered_coords(avail_lines, avail_cols,
         target_lines, target_cols):
@@ -544,6 +568,9 @@ class ModalRegionBase:
             avail_cols (int): The number of cols in containing box.
             target_lines (int): The number of lines in box to be centered.
             target_cols (int): THe number of lines in box to be centered.
+
+        Returns:
+            tuple: Tuple of ints (y, x) of origin of target area centered.
 
         Raises:
             ValueError: If target dimension is larger than avail dimension.
@@ -634,19 +661,6 @@ class ModalRegionBase:
         """
         return round(self._window.lines / self._curses.LINES, 1)
 
-    def _center_window(self):
-        """
-        Centers the window in the screen if necessary.
-
-        This method can be called, for example, if the window has been resized.
-
-        """
-        centered_coords = self._get_centered_coords(
-            self._curses.LINES, self._curses.COLS,
-            self._window.lines, self._window.cols)
-        if self._window.getbegyx() != centered_coords:
-            self._window.mvwin(*centered_coords)
-
     def destroy(self):
         """
         Remove the region from the screen permanently.
@@ -681,14 +695,59 @@ class ModalRegionPrompt(ModalRegionBase):
         """
         Constructor.
 
+        Args:
+            prompt_string (string): Message to display to user above the actual
+                user input line.
+
         """
         super().__init__(curses, screen, window_factory)
 
         self._prompt_string = None
+        self._reserved_cols = 4
+        self._reserved_lines = 5
         self._string_factory = string_factory
 
         self._init_prompt_string(prompt_string)
         self._configure()
+
+    @property
+    def _avail_cols(self):
+        """
+        Get the number of available, non-reserved lines.
+
+        Returns:
+            int: The number of avaiable lines.
+
+        """
+        avail_lines, avail_cols = self._get_avail_dimensions(
+            self._window.lines, self._window.cols)
+        return avail_cols
+
+    @property
+    def _avail_lines(self):
+        """
+        Get the number of available, non-reserved lines.
+
+        Returns:
+            int: The number of avaiable lines.
+
+        """
+        avail_lines, avail_cols = self._get_avail_dimensions(
+            self._window.lines, self._window.cols)
+        return avail_lines
+
+    @property
+    def _avail_origin(self):
+        """
+        Get the origin y-coord of available space within window.
+
+        Returns:
+            tuple: Ints (y, x), the origin of available area within window.
+
+        """
+        return self._get_centered_coords(
+            self._window.lines, self._window.cols,
+            self._avail_lines, self._avail_cols)
 
     def _configure(self):
         """
@@ -707,6 +766,31 @@ class ModalRegionPrompt(ModalRegionBase):
         """
         self._window.erase()
         self._configure()
+
+    def _get_avail_dimensions(self, lines, cols):
+        """
+        Given dimensions, return this modal region's available dimensions.
+
+        Certain lines and columns are reserved inside the window. Two each of
+        lines and columns may be reserved for the window border, for instance.
+        This method returns the writable space inside a window of the given
+        dimensions.
+
+        Note that no exceptions are thrown for invalid dimensions such as
+        negative numbers. The responsibility of validation rests with the
+        calling code.
+
+        Args:
+            lines (int): Number of lines in a window.
+            cols (int): Number of columns in a window.
+
+        Returns:
+            tuple: Tuple (lines, cols) of available dimensions.
+
+        """
+        avail_lines = lines - self._reserved_lines
+        avail_cols = cols - self._reserved_cols
+        return (avail_lines, avail_cols)
 
     def _init_prompt_string(self, prompt_string):
         """
@@ -737,15 +821,9 @@ class ModalRegionPrompt(ModalRegionBase):
             ValueError: If string is too long to fit in window even at max size.
 
         """
-        # The following quantities of dimensions must be subtracted from
-        # available lines and columns. Lines: border + prompt line.
-        # Cols: border.
-        reserved_lines = 3
-        reserved_cols = 2
-
         # If string too large for max window, no sense in continuing.
-        max_avail_lines = self._max_lines - reserved_lines
-        max_avail_cols = self._max_cols - reserved_cols
+        max_avail_lines, max_avail_cols = self._get_avail_dimensions(
+            self._max_lines, self._max_cols)
         max_lines_list = textwrap.wrap(prompt_string, width=max_avail_cols)
         if len(max_lines_list) > max_avail_lines:
             raise ValueError('Prompt string length exceeds window bounds.')
@@ -753,23 +831,21 @@ class ModalRegionPrompt(ModalRegionBase):
         # If prompt can fit into window at current size, it avoids a resize.
         # At this point, it is a given that the prompt string is short enough to
         # fit into at least a window of maximum size.
-        current_avail_lines = self._window.lines - reserved_lines
-        current_avail_cols = self._window.cols - reserved_cols
         current_lines_list = textwrap.wrap(
-            prompt_string, width=current_avail_cols)
+            prompt_string, width=self._avail_cols)
 
         # If string doesn't fit current size, find a size that does and resize.
         # Note that this will NOT preserve any established window proportions,
         # resetting the window dimensions to fixed percentages of the total
         # screen size.
-        if len(current_lines_list) > current_avail_lines:
+        if len(current_lines_list) > self._avail_lines:
             multiplier_step = 0.1
             multiplier = self._percent_cols + multiplier_step
             while multiplier <= self.WIN_MAX_PERCENT:
                 test_lines = math.floor(self._curses.LINES * multiplier)
-                test_avail_lines = test_lines - reserved_lines
                 test_cols = math.floor(self._curses.COLS * multiplier)
-                test_avail_cols = test_cols - reserved_cols
+                test_avail_lines, test_avail_cols = self._get_avail_dimensions(
+                    test_lines, test_cols)
                 test_line_list = textwrap.wrap(
                     prompt_string, width=test_avail_cols)
                 if len(test_line_list) > test_avail_lines:
@@ -781,82 +857,49 @@ class ModalRegionPrompt(ModalRegionBase):
 
         # Create string and write. Remember that the prompt string will be
         # written directly above the user input (prompt) line.
-        avail_lines = self._window.lines - reserved_lines
-        avail_cols = self._window.cols - reserved_cols
-        lines_list = textwrap.wrap(prompt_string, width=avail_cols)
-        string_y, string_x = self._get_centered_coords(
-            avail_lines, avail_cols,
-            len(lines_list), len(lines_list[0]))
+        # Because available dimensions are almost always less than total window
+        # dimensions, one must find the origin of available area within the
+        # window. The area of available space should be centered in the window
+        # as much as possible.
+        avail_origin_y, avail_origin_x = self._avail_origin
+        lines_list = textwrap.wrap(prompt_string, width=self._avail_cols)
+        coord_y, coord_x = self._get_centered_coords(
+            self._avail_lines, self._avail_cols,
+            len(lines_list), len(max(lines_list, key=len)))
+
+        # Create and write the string.
         self._prompt_string = self._string_factory.create_string(
-            self._window, '\n'.join(lines_list), string_y, string_x)
+            self._window, '\n'.join(lines_list),
+            avail_origin_y + coord_y, avail_origin_x + coord_x)
         self._prompt_string.write()
-
-    # def _get_centered_coords(self, string):
-        # """
-        # Return a tuple of coordinates (y, x) that will place given string at
-        # center of window.
-
-        # Args:
-            # string (str): A single-line string.
-
-        # Raises:
-            # ValueError: If string is too long for window dimensions.
-
-        # """
-        # if len(string) > self.cols - 2:
-            # raise ValueError('String length exceeds window bounds')
-
-        # coord_x = round((self.cols - len(string)) / 2)
-        # coord_y = round((self.lines - 1) / 2)
-        # return (coord_y, coord_x)
 
     def prompt(self):
         """
-        Clears window and displays a prompt for input to the user. Returns
-        the entered string. Currently, the prompt string is only a single line
-        and is rendered in the center of the window with the user input echoed
-        below it.
+        Captures user input into a single line, returning input as string.
 
-        Warning: window.addstr() and/or window.getstr() implicitly call screen
-        refreshes.
+        Currently, the prompt is only a single line underneath the prompt string
+        and is left-justified with prompt string. Note that this method converts
+        the bytes object returned by window.getstr() into a string using the
+        encoding contained in the curses object.
 
-        Note that this converts the bytes object returned by window.getstr()
-        into a string using the encoding contained in the curses object. In this
-        instance, I favor fully abstracting curses' idiosyncrasies rather than
-        forcing the higher level abstractions to handle all the various forms
-        of return values.
+        Warning: window.getstr() implicitly calls a screen refresh.
+
+        Raises:
+            RuntimeError: If window is hidden when prompt is called.
 
         """
-        return False
         # Throw an exception if prompt is called while window is hidden.
-        if self._render_layer_current == self.RENDER_LAYER_HIDDEN:
+        if self._window.hidden:
             raise RuntimeError('Cannot issue prompt while window is hidden.')
 
-        # Validate prompt string. Subtract two from columns to account for
-        # window border.
-        prompt_string_length = len(prompt_string)
-        if prompt_string_length > self.cols - 2:
-            raise ValueError('Prompt string exceeds window bounds.')
+        # The user input line should be on the first line underneath the prompt
+        # string.
+        coord_y = self._prompt_string.y + len(self._prompt_string.lines)
+        coord_x = self._prompt_string.x
 
-        # Draw prompt string. Prompt string and input line span two window lines
-        # in total. In order for both prompt string and input line to appear
-        # centered in modal, therefore, both lines must be shifted upward on y
-        # axis by two lines.
-        self.erase()
-        prompt_string_coord_y, prompt_string_coord_x = \
-            self._get_centered_coords(prompt_string)
-        curses_prompt_string = self._string_factory.create_string(
-            self._window,
-            prompt_string,
-            prompt_string_coord_y,
-            prompt_string_coord_x)
-        curses_prompt_string.write()
-
-        # Start input polling. User's input will be displayed directly below
-        # prompt.
+        # Start input polling.
         self._curses.echo()
-        input_string = self._window.getstr(
-            prompt_string_coord_y + 1, prompt_string_coord_x)
+        input_string = self._window.getstr(coord_y, coord_x)
         self._curses.noecho()
 
         return input_string.decode(self._curses.character_encoding)
@@ -1161,6 +1204,11 @@ class CursesString:
     a displayed string's coordinates within a window and makes operations such
     as moving, erasing, and overwriting strings easier.
 
+    The string passed into the constructor may contain newline characters. The
+    string will be converted into a list of lines, split on the newline
+    characters. Each line will be written to a new line in the window
+    sequentially.
+
     A string is not written to the window by default. The calling code must
     manually call the write method.
 
@@ -1175,7 +1223,8 @@ class CursesString:
                 Necessary for the use of string styling contstants.
             window (curses.newwin): A curses window wrapper. Must have wrapper
                 interface with the lines and cols getter properties.
-            string: (string)
+            string: (string): The string. Will be split into lines on each
+                newline character (\n).
             y (int): The y-coord at which to initially write string.
             x (int): The x-coord at which to initially write string.
             attr (int): A curses attribute integer. Each bit represents a style.
@@ -1186,7 +1235,7 @@ class CursesString:
         """
         # Validate arguments.. Ensure y and x do not exceed window bounds.
         if y > window.lines or x > window.cols:
-            raise ValueError('String coords exceed window bounds.')
+            raise ValueError('String origin coords exceed window bounds.')
         if attr == None:
             attr = curses.A_NORMAL
 
@@ -1194,16 +1243,51 @@ class CursesString:
         self._coord_y = y
         self._curses = curses
         self._is_written = False
-        self._string = string
+        self._string_lines_list = string.split('\n')
         self._window = window
         self.attr = attr
+        self.string = string
+
+        self._validate_string()
 
     def __len__(self):
         """
         Implement the length interface method for use with len().
 
         """
-        return len(self._string)
+        return len(self.string)
+
+    @property
+    def _string_lines(self):
+        """
+        Generate origin coords and string for each string line.
+
+        A generator function that yields a tuple of three elements: y-coord,
+        x-coord, and string of each line in the string.
+
+        Returns:
+            tuple: (coord_y, coord_x, length) Of each line in string.
+        """
+        line_number = 0
+        for line in self._string_lines_list:
+            line_coord_y = self._coord_y + line_number
+            line_coord_x = self._coord_x
+            yield (line_coord_y, line_coord_x, line)
+            line_number += 1
+
+    def _validate_string(self):
+        """
+        Ensure that string can be properly written to window in its enirety.
+
+        Raises:
+            ValueError: If string is too long or has too many lines to fit into
+                the window.
+
+        """
+        line_count = len(self._string_lines_list)
+        longest_line = len(max(self._string_lines_list, key=len))
+        if longest_line > self._window.cols or line_count > self._window.lines:
+            raise ValueError('String is too long for window dimensions.')
 
     @property
     def attr(self):
@@ -1224,20 +1308,33 @@ class CursesString:
         """
         self._attr = attr
         if self._is_written:
-            self._window.chgat(
-                self._coord_y,
-                self._coord_x,
-                len(self),
-                self._attr)
+            for coord_y, coord_x, line in self._string_lines:
+                self._window.chgat(
+                    coord_y,
+                    coord_x,
+                    len(line),
+                    self._attr)
 
     def erase(self):
         """
         Overwrite string with blank chars.
 
         """
-        empty_string = ''.ljust(len(self))
-        self._window.addstr(self._coord_y, self._coord_x, empty_string)
+        for coord_y, coord_x, line in self._string_lines:
+            empty_string = ''.ljust(len(line))
+            self._window.addstr(coord_y, coord_x, empty_string)
         self._is_written = False
+
+    @property
+    def lines(self):
+        """
+        Get the list of the string's lines.
+
+        Returns:
+            list: A list of string lines.
+
+        """
+        return self._string_lines_list
 
     def move(self, y, x):
         """
@@ -1255,14 +1352,6 @@ class CursesString:
         else:
             self._coord_y = y
             self._coord_x = x
-
-    @property
-    def string(self):
-        """
-        Get the internal string's value.
-
-        """
-        return self._string
 
     def style_bold(self):
         """
@@ -1308,17 +1397,18 @@ class CursesString:
         is_written check is performed.
 
         """
-        self._window.addstr(
-            self._coord_y,
-            self._coord_x,
-            self._string,
-            self._attr)
+        for coord_y, coord_x, line in self._string_lines:
+            self._window.addstr(
+                coord_y,
+                coord_x,
+                line,
+                self._attr)
         self._is_written = True
 
     @property
     def x(self):
         """
-        Get the x-coordinate of window at which string is or will be written.
+        Get the origin x-coordinate string.
 
         """
         return self._coord_x
@@ -1326,7 +1416,7 @@ class CursesString:
     @property
     def y(self):
         """
-        Get the y-coordinate of window at which string is or will be written.
+        Get the origin y-coordinate string.
 
         """
         return self._coord_y

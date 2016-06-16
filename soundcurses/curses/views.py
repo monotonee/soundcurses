@@ -85,13 +85,12 @@ class MainView:
         valid SoundCloud username.
 
         """
-        modal_prompt = self._modal_factory.create_prompt(
-            'enter username:')
-        # modal_prompt.show()
-        # username = self._window_modal.prompt('enter username: ')
-        # self._window_modal.hide()
+        modal_prompt = self._modal_factory.create_prompt('enter username: ')
+        modal_prompt.show()
+        username = modal_prompt.prompt()
+        modal_prompt.destroy()
 
-        # return username
+        return username
 
     def render(self):
         self._screen.render()
