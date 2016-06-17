@@ -24,6 +24,7 @@ class MainView:
         """
         self._input_source = input_source
         self._modal_factory = modal_factory
+        self._modal_loading = None
         self._modal_message = None
         self._model = model
         self._region_content = region_content
@@ -60,28 +61,50 @@ class MainView:
     def destroy(self):
         """
         Relinquish control of the screen. Revert terminal settings.
+
         """
         self._screen.destroy()
 
-    def hide_loading_animation(self):
+    def hide_loading_indicator(self):
         """
-        Stop the loading animation and hide the modal window.
+        Hide the loading indicator.
+
+        NOOP if no loading indicator has been created.
 
         """
-        self._window_modal.stop_loading_animation()
-        self._window_modal.hide()
+        if self._modal_loading:
+            self._modal_loading.destroy()
 
     def hide_message(self):
-        self._modal_message.destroy()
+        """
+        Hide the message modal window.
+
+        NOOP if no modal message has been created.
+
+        """
+        if self._modal_message:
+            self._modal_message.destroy()
 
     @property
     def last_render_timestamp(self):
+        """
+        Get the Unix timestamp of the last call to render the curses screen.
+
+        Call is delegated to the screen abstraction object.
+
+        Returns:
+            int: A Unix timestamp.
+
+        """
         return self._screen.last_render_timestamp
 
     def prompt_username(self):
         """
-        Display a modal input window into which the user will enter a
-        valid SoundCloud username.
+        Display a window into which the user will enter a SoundCloud username.
+
+        Returns:
+            string: A string of the user's input. Should be a SoundCloud
+                username.
 
         """
         modal_prompt = self._modal_factory.create_prompt('enter username: ')
@@ -92,28 +115,40 @@ class MainView:
         return username
 
     def render(self):
+        """
+        Execute a single rendering pass of the view.
+
+        Delegated to the screen abstraction object.
+
+        """
         self._screen.render()
 
     def sample_input(self):
-        """ Starts polling for input from curses windows.
+        """
+        Execute a single sampling of input from the designated polling window.
 
         """
         return self._input_source.sample_input()
 
-    def show_loading_animation(self):
-        """ Displays a modal window in which an animated spinner is rendered.
+    def show_loading_indicator(self):
+        """
+        Display an indication to the user that the application is waiting.
 
         Designed to indicate that the program is waiting for some task to
         complete.
 
         """
-        self._window_modal.start_loading_animation()
-        self._window_modal.show()
+        if self._modal_loading:
+            self._modal_loading.destroy()
+        self._modal_loading = self._modal_factory.create_spinner()
+        self._modal_loading.show()
 
     def show_message(self, message):
         """
         Display a message in a modal window.
 
         """
+        if self._modal_message:
+            self._modal_message.destroy()
         self._modal_message = self._modal_factory.create_message(message)
         self._modal_message.show()

@@ -229,7 +229,8 @@ class HeaderRegion:
         """
         self._window.addstr(0, 0, 'soundcurses - version 0.0.1')
         help_string = 'F1: help'
-        self._window.addstr(0, self._window.cols - len(help_string) - 1,
+        self._window.addstr(
+            0, self._window.cols - len(help_string) - 1,
             help_string)
 
 
@@ -257,6 +258,7 @@ class StatusRegion:
 
         self._string_factory = string_factory
         self._username = None
+        self._window = window
 
     @property
     def username(self):
@@ -283,7 +285,7 @@ class StatusRegion:
         few columns to complete string write.
 
         """
-        y_coord = (self._window.lines - 1) / 2
+        y_coord = math.floor((self._window.lines - 1) / 2)
         x_coord = 1
 
         self._username = self._string_factory.create_string(
@@ -756,38 +758,24 @@ class ModalRegionBase:
 
 class ModalRegionAnim(ModalRegionBase):
     """
-    A class that represents a modal loading animation "window."
+    A class that represents a modal window containing some type of animation.
+
+    When instantiated, animation is started by default, although it can be
+    started and stopped manually by the calling code.
 
     """
 
-    def __init__(self, curses, screen, window_factory, string_factory):
+    def __init__(self, curses, screen, window_factory, animation):
+        """
+        Constructor.
+
+        """
         super().__init__(curses, screen, window_factory)
 
-        self._current_animation = animation
-        self._current_spinner = None
-        self._curses = curses
-        self._string_factory = string_factory
+        self._animation = animation
 
         self._configure()
-
-    def _get_centered_coords(self, string):
-        """
-        Return a tuple of coordinates (y, x) that will place given string at
-        center of window.
-
-        Args:
-            string (str): A single-line string.
-
-        Raises:
-            ValueError: If string is too long for window dimensions.
-
-        """
-        if len(string) > self.cols - 2:
-            raise ValueError('String lenght exceeds window bounds')
-
-        coord_x = round((self.cols - len(string)) / 2)
-        coord_y = round((self.lines - 1) / 2)
-        return (coord_y, coord_x)
+        self.start_animation()
 
     def _configure(self):
         """
@@ -795,113 +783,31 @@ class ModalRegionAnim(ModalRegionBase):
 
         Sets initial window state such as borders, colors, initial content, etc.
         Designed to be called only during object construction.
-        """
-        self._configure_style()
-        self.render_layer_default = self.RENDER_LAYER_BASE + 2
-        self._render_layer_current = self.RENDER_LAYER_HIDDEN
-
-    def _configure_style(self):
-        """
-        Reinitialize window styles tht can be cleared by calls to window.erase.
-
-        Internal method for drawing borders and other decoration. Separated
-        so that borders, for instance, can be redrawn after calls to
-        window.erase() while style configuration is centralized.
 
         """
         self._window.border()
 
-    def erase(self):
-        """ Clear all window content and re-draw border.
+    def start_animation(self):
+        """
+        Start enable the animation.
 
         """
-        self._window.erase()
-        self._configure_style()
-
-    def message(self, string):
-        """
-        Display a blank modal window save for a string of text characters.
-
-        Currently, text string must not occupy more columns than those that are
-        available in the window's dimensions.
-
-        Raises:
-            ValueError: If text string is too long for window dimensions.
-
-        """
-        self.erase()
-        coord_y, coord_x = self._get_centered_coords(string)
-        string_object = self._string_factory.create_string(
-            self, string, coord_y, coord_x)
-        string_object.write()
-
-    def prompt(self, prompt_string):
-        """ Clears window and displays a prompt for input to the user. Returns
-        the entered string. Currently, the prompt string is only a single line
-        and is rendered in the center of the window with the user input echoed
-        below it.
-
-        Warning: window.addstr() and/or window.getstr() implicitly call screen
-        refreshes.
-
-        Note that this converts the bytes object returned by window.getstr()
-        into a string using the encoding contained in the curses object. In this
-        instance, I favor fully abstracting curses' idiosyncrasies rather than
-        forcing the higher level abstractions to handle all the various forms
-        of return values.
-
-        """
-        # Throw an exception if prompt is called while window is hidden.
-        if self._render_layer_current == self.RENDER_LAYER_HIDDEN:
-            raise RuntimeError('Cannot issue prompt while window is hidden.')
-
-        # Validate prompt string. Subtract two from columns to account for
-        # window border.
-        prompt_string_length = len(prompt_string)
-        if prompt_string_length > self.cols - 2:
-            raise ValueError('Prompt string exceeds window bounds.')
-
-        # Draw prompt string. Prompt string and input line span two window lines
-        # in total. In order for both prompt string and input line to appear
-        # centered in modal, therefore, both lines must be shifted upward on y
-        # axis by two lines.
-        self.erase()
-        prompt_string_coord_y, prompt_string_coord_x = \
-            self._get_centered_coords(prompt_string)
-        curses_prompt_string = self._string_factory.create_string(
+        avail_origin_y, avail_origin_x = self._avail_origin
+        coord_y, coord_x = self._get_centered_coords(
+            self._avail_lines, self._avail_cols,
+            self._animation.lines, self._animation.cols)
+        self._animation.add_render_instance(
             self._window,
-            prompt_string,
-            prompt_string_coord_y,
-            prompt_string_coord_x)
-        curses_prompt_string.write()
+            avail_origin_y + coord_y,
+            avail_origin_x + coord_x)
+        self._animation.start()
 
-        # Start input polling. User's input will be displayed directly below
-        # prompt.
-        self._curses.echo()
-        input_string = self._window.getstr(
-            prompt_string_coord_y + 1, prompt_string_coord_x)
-        self._curses.noecho()
-
-        return input_string.decode(self._curses.character_encoding)
-
-    def start_loading_animation(self):
+    def stop_animation(self):
         """
-        Clear the window and enable the loading animation.
-        """
-        self.erase()
-        self._current_animation.add_render_instance(
-            self,
-            round((self.lines - self._current_animation.lines) / 2),
-            round((self.cols - self._current_animation.cols) / 2))
-        self._current_animation.start()
-
-    def stop_loading_animation(self):
-        """
-        Disable the animation and clear the window.
+        Stop the animation.
 
         """
-        self._current_animation.stop()
-        self.erase()
+        self._animation.stop()
 
 
 class ModalRegionMessage(ModalRegionBase):
@@ -1070,13 +976,19 @@ class ModalRegionFactory:
     A class that hides creation details of modal regions at runtime.
 
     """
-    def __init__(self, curses, screen, window_factory, string_factory):
+    def __init__(self, curses, screen, window_factory, string_factory,
+        spinner_anim):
         """
         Constructor.
+
+        Args:
+            spinner_anim (AbstractAnimation): The animation effect to place into
+                the "spinner" modal window.
 
         """
         self._curses = curses
         self._screen = screen
+        self._spinner_anim = spinner_anim
         self._string_factory = string_factory
         self._window_factory = window_factory
 
@@ -1095,6 +1007,14 @@ class ModalRegionFactory:
         """
         return ModalRegionMessage(self._curses, self._screen,
             self._window_factory, msg_string, self._string_factory)
+
+    def create_spinner(self):
+        """
+        Create and return a new instance of a "spinner" animation modal.
+
+        """
+        return ModalRegionAnim(self._curses, self._screen, self._window_factory,
+            self._spinner_anim)
 
 
 class CursesString:

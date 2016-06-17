@@ -24,6 +24,7 @@ class BaseState(metaclass=abc.ABCMeta):
     An ABC for use in a basic state pattern implementation.
 
     """
+
     def __init__(self, input_mapper, controller, state_factory):
         """
         Constructor.
@@ -147,12 +148,12 @@ class NoUsernameState(BaseState):
 
     """
     def __init__(self, input_mapper, controller, state_factory,
-        souncloud_wrapper, view):
+        model, view):
         """
         Constructor. Override parent.
 
         Args:
-            souncloud_wrapper (SoundcloudWrapper): From local models module.
+            model (SoundcloudWrapper): From local models module.
                 Necessary for exception checking.
             view (MainView): From local views module. Necessary in order to
                 start and stop loading animation.
@@ -160,44 +161,54 @@ class NoUsernameState(BaseState):
         """
         super().__init__(input_mapper, controller, state_factory)
         self._future_resolve_username = None
-        self._souncloud_wrapper = souncloud_wrapper
+        self._model = model
         self._view = view
 
     def _prompt_username(self):
+        """
+        Attempt to get a username from the user.
+
+        """
         username = self._view.prompt_username()
-        self._view.show_loading_animation()
-        self._future_resolve_username = \
-            self._souncloud_wrapper.get_user_by_username(username)
+        self._view.show_loading_indicator()
+        self._future_resolve_username = self._model.get_user_by_username(
+            username)
 
     def _verify_username(self):
         """
         Verify the results of a username resolution call.
+
+        If the username was invalid, briefly display a message to the user
+        indicating such. Does not automatically re-prompt the user.
+
+        If the attempt to get user data failed in some other way, re-raises
+        the exception and allows it to propagate.
 
         """
         # Reset future attribute since the future has been consumed.
         future = self._future_resolve_username
         self._future_resolve_username = None
 
-        # The self._souncloud_wrapper.HTTP_ERROR indicates that username could
-        # not be resolved.
+        # The self._model.HTTP_ERROR indicates that username could not be
+        # resolved.
         if future.exception():
             username_not_resolved = isinstance(
-                future.exception(), self._souncloud_wrapper.HTTP_ERROR)
+                future.exception(), self._model.HTTP_ERROR)
             if username_not_resolved:
                 # Manual rendering must be performed since this function will be
-                # blocking this thread's main loop that contains the regular
+                # blocking this thread's main loop that contains the interval
                 # render call.
-                self._view.hide_loading_animation()
+                self._view.hide_loading_indicator()
                 self._view.show_message('Username not found. Please try again.')
                 self._view.render()
-                time.sleep(3)
+                time.sleep(2)
                 self._view.hide_message()
             else:
                 raise future.exception()
         else:
             user = future.result()
-            self._souncloud_wrapper.current_user = user
-            self._view.hide_loading_animation()
+            self._model.current_user = user
+            self._view.hide_loading_indicator()
 
     def enter(self):
         """
@@ -242,18 +253,18 @@ class StateFactory:
     Factory to hide and centralize creation details of state objects.
 
     """
-    def __init__(self, input_mapper, souncloud_wrapper, view):
+    def __init__(self, input_mapper, model, view):
         """
         Constructor.
 
         Args:
             input_mapper (UserInputMapper)
-            souncloud_wrapper (SoundcloudWrapper): From local models module.
+            model (SoundcloudWrapper): From local models module.
             view (MainView): From local views module.
 
         """
         self._input_mapper = input_mapper
-        self._souncloud_wrapper = souncloud_wrapper
+        self._model = model
         self._view = view
 
     def create_no_username(self, context):
@@ -268,5 +279,5 @@ class StateFactory:
             self._input_mapper,
             context,
             self,
-            self._souncloud_wrapper,
+            self._model,
             self._view)

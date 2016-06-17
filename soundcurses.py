@@ -111,8 +111,9 @@ def main(stdscr):
         curses_wrapper,
         curses_screen,
         window_factory,
-        string_factory)
-    main_view = views.MainView(
+        string_factory,
+        effects.SimpleSpinner(curses_screen))
+    view = views.MainView(
         input_source,
         curses_screen,
         model,
@@ -121,25 +122,17 @@ def main(stdscr):
         content_region,
         modal_factory)
 
-    main_view.render()
-    import time
-    time.sleep(2)
-    main_view.prompt_username()
-    main_view.render()
-    time.sleep(2)
-
-
     # Compose controllers.
-    # input_mapper = user_input.UserInputMapper()
-    # state_factory = states.StateFactory(
-        # input_mapper,
-        # souncloud_wrapper,
-        # main_view)
-    # main_controller = controllers.MainController(
-        # input_mapper,
-        # state_factory,
-        # main_view)
+    input_mapper = user_input.UserInputMapper()
+    state_factory = states.StateFactory(
+        input_mapper,
+        model,
+        view)
+    controller = controllers.MainController(
+        input_mapper,
+        state_factory,
+        view)
 
-    # main_controller.start_application()
+    controller.start_application()
 
 curses.wrapper(main)
