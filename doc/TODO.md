@@ -25,3 +25,8 @@ Reduce coupling between state objects and application components by using comman
 Remove the MainController's depenence on the StateFactory?
 Add more descriptive errors to soundcloud wrapper for various API conditions.
     Ex: One error for unresolved username, another for actual HTTP errors.
+Hard-code in config the min column screen dimensions
+    Gracefully handle too-narrow screen dimensions.
+Hold weak references to windows in the the screen object?
+Improve bute-force iterative window resizing check in ModalRegionPrompt
+Ensure that a window cannot be added to the screen object twice.
