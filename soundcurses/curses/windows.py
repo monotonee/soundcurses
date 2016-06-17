@@ -502,6 +502,10 @@ class ModalRegionBase:
     expose a destroy method.
 
     Attributes:
+        RESERVED_COLS (int): The number of columns inside the window onto which
+            nothing can be written. Used for padding, border lines, etc.
+        RESERVED_LINES (int): The number of lines inside the window onto which
+            nothing can be written. Used for padding, border lines, etc.
         WIN_MAX_PERCENT (float): The max size of the modal window relative to
             the screen dimensions.
         WIN_MIN_PERCENT (float): The min size of the modal window relative to
@@ -509,6 +513,8 @@ class ModalRegionBase:
 
     """
 
+    RESERVED_COLS = 4
+    RESERVED_LINES = 4
     WIN_MAX_PERCENT = 0.9
     WIN_MIN_PERCENT = 0.4
 
@@ -522,8 +528,6 @@ class ModalRegionBase:
 
         """
         self._curses = curses
-        self._reserved_cols = 4
-        self._reserved_lines = 4
         self._screen = screen
         self._window = None
         self._window_factory = window_factory
@@ -603,8 +607,8 @@ class ModalRegionBase:
             tuple: Tuple (lines, cols) of available dimensions.
 
         """
-        avail_lines = lines - self._reserved_lines
-        avail_cols = cols - self._reserved_cols
+        avail_lines = lines - self.RESERVED_LINES
+        avail_cols = cols - self.RESERVED_COLS
         return (avail_lines, avail_cols)
 
     @staticmethod
@@ -755,6 +759,7 @@ class ModalRegionAnim(ModalRegionBase):
     A class that represents a modal loading animation "window."
 
     """
+
     def __init__(self, curses, screen, window_factory, string_factory):
         super().__init__(curses, screen, window_factory)
 
@@ -1011,120 +1016,22 @@ class ModalRegionMessage(ModalRegionBase):
         self._msg_string.write()
 
 
-class ModalRegionPrompt(ModalRegionBase):
+class ModalRegionPrompt(ModalRegionMessage):
     """
     A class that represents a modal prompt "window."
 
+    Differs from modal message by exposing a prompt functionality into which
+    a user inputs text, echoed on the same line as it is typed. Therefore,
+    an extra line must be reserved from the message string so that both the
+    message and the prompt line will fit into the window.
+
+    Attributes:
+        RESERVED_LINES (int): Override the base constant, reserving an extra
+            line for the prompt.
+
     """
 
-    def __init__(self, curses, screen, window_factory,
-        prompt_string, string_factory):
-        """
-        Constructor.
-
-        Args:
-            prompt_string (string): Message to display to user above the actual
-                user input line.
-
-        """
-        super().__init__(curses, screen, window_factory)
-
-        self._prompt_string = None
-        self._reserved_lines = 5
-        self._string_factory = string_factory
-
-        self._init_prompt_string(prompt_string)
-        self._configure()
-
-    def _configure(self):
-        """
-        Configure region/window properties.
-
-        Sets initial window state such as borders, colors, initial content, etc.
-        Designed to be called only during object construction.
-
-        """
-        self._window.border()
-
-    def _init_prompt_string(self, prompt_string):
-        """
-        Validate string length, create string, and resize window if necessary.
-
-        For instance, ensure that the prompt string is not too long to fit in
-        a window of maximum size. Remember that space must be reserved for the
-        actual prompt line into which user input is typed as well as space for
-        the window's borders.
-
-        If string is too long for current window size, check if resize operation
-        would allow it to fit. If a suitable size is found, resize window.
-        Determine string coordinates and create string object.
-
-        I'm not happy with the brute-force, iterative solution here. I could
-        attempt a more intelligent solution using word counts, character counts,
-        and guessing, but premature optimization is the root of all evil. One
-        main problem is that it's not an issue of raw character count. The text
-        wrapping breaks on words and/or hyphens and other rules. Therefore,
-        only the textwrap library can answer if a given string will fit into a
-        given number of lines.
-
-        Args:
-            prompt_string (string): The prompt string.
-
-        Raises:
-            ValueError: If string is too long to fit in window even at max size.
-
-        """
-        # If string too large for max window, no sense in continuing.
-        max_avail_lines, max_avail_cols = self._get_avail_dimensions(
-            self._max_lines, self._max_cols)
-        max_lines_list = textwrap.wrap(prompt_string, width=max_avail_cols)
-        if len(max_lines_list) > max_avail_lines:
-            raise ValueError('Prompt string length exceeds window bounds.')
-
-        # If prompt can fit into window at current size, it avoids a resize.
-        # At this point, it is a given that the prompt string is short enough to
-        # fit into at least a window of maximum size.
-        current_lines_list = textwrap.wrap(
-            prompt_string, width=self._avail_cols)
-
-        # If string doesn't fit current size, find a size that does and resize.
-        # Note that this will NOT preserve any established window proportions,
-        # resetting the window dimensions to fixed percentages of the total
-        # screen size.
-        if len(current_lines_list) > self._avail_lines:
-            multiplier_step = 0.1
-            multiplier = self._percent_cols + multiplier_step
-            while multiplier <= self.WIN_MAX_PERCENT:
-                test_lines = math.floor(self._curses.LINES * multiplier)
-                test_cols = math.floor(self._curses.COLS * multiplier)
-                test_avail_lines, test_avail_cols = self._get_avail_dimensions(
-                    test_lines, test_cols)
-                test_line_list = textwrap.wrap(
-                    prompt_string, width=test_avail_cols)
-                if len(test_line_list) > test_avail_lines:
-                    multiplier += multiplier_step
-                else:
-                    self._window.resize(test_lines, test_cols)
-                    self._center_window()
-                    break
-
-        # Create string and write. Remember that the prompt string will be
-        # written directly above the user input (prompt) line.
-        # Because available dimensions are almost always less than total window
-        # dimensions, one must find the origin of available area within the
-        # window. The area of available space should be centered in the window
-        # as much as possible.
-        avail_origin_y, avail_origin_x = self._avail_origin
-        lines_list = textwrap.wrap(prompt_string, width=self._avail_cols)
-        coord_y, coord_x = self._get_centered_coords(
-            self._avail_lines, self._avail_cols,
-            len(lines_list), len(max(lines_list, key=len)))
-
-        # Create and write the string.
-        self._prompt_string = self._string_factory.create_string(
-            self._window, '\n'.join(lines_list),
-            avail_origin_y + coord_y, avail_origin_x + coord_x)
-        self._prompt_string.write()
+    RESERVED_LINES = 5
 
     def prompt(self):
         """
@@ -1147,8 +1054,8 @@ class ModalRegionPrompt(ModalRegionBase):
 
         # The user input line should be on the first line underneath the prompt
         # string.
-        coord_y = self._prompt_string.y + len(self._prompt_string.lines)
-        coord_x = self._prompt_string.x
+        coord_y = self._msg_string.y + len(self._msg_string.lines)
+        coord_x = self._msg_string.x
 
         # Start input polling.
         self._curses.echo()
