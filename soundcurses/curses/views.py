@@ -72,8 +72,7 @@ class MainView:
         self._window_modal.hide()
 
     def hide_message(self):
-        self._window_modal.erase()
-        self._window_modal.hide()
+        self._modal_message.destroy()
 
     @property
     def last_render_timestamp(self):
@@ -116,5 +115,5 @@ class MainView:
         Display a message in a modal window.
 
         """
-        self._window_modal.message(message)
-        self._window_modal.show()
+        self._modal_message = self._modal_factory.create_message(message)
+        self._modal_message.show()
