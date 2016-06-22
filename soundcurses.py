@@ -13,8 +13,9 @@ import signalslot
 import soundcloud
 
 # Local imports.
-from soundcurses import (controllers, models, states, user_input)
-from soundcurses.curses import (components, effects, screen, views, windows)
+from soundcurses import (controllers, models, states)
+from soundcurses.curses import (components, effects, screen, user_input, views,
+    windows)
 
 def main(stdscr):
     """
@@ -83,7 +84,7 @@ def main(stdscr):
     content_region = windows.ContentRegion(content_window, curses_wrapper)
 
     # Compose input source.
-    input_source = components.InputSource(curses_wrapper, stdscr_window)
+    input_source = user_input.InputSource(curses_wrapper, stdscr_window)
 
     # IMPORTANT: This soundcloud.Client instance is not to be touched.
     # It is accessed exclusively by a separate thread. Its existence in the main
@@ -107,12 +108,14 @@ def main(stdscr):
         signalslot.Signal())
 
     # Compose view(s).
+    input_mapper = user_input.UserInputMapper()
     modal_factory = windows.ModalRegionFactory(
         curses_wrapper,
         curses_screen,
         window_factory,
         string_factory,
-        effects.SimpleSpinner(curses_screen))
+        effects.SimpleSpinner(curses_screen),
+        input_mapper)
     view = views.MainView(
         input_source,
         curses_screen,
@@ -123,7 +126,6 @@ def main(stdscr):
         modal_factory)
 
     # Compose controllers.
-    input_mapper = user_input.UserInputMapper()
     state_factory = states.StateFactory(
         input_mapper,
         model,

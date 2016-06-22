@@ -25,6 +25,7 @@ class MainView:
         self._input_source = input_source
         self._modal_factory = modal_factory
         self._modal_loading = None
+        self._modal_help = None
         self._modal_message = None
         self._model = model
         self._region_content = region_content
@@ -65,6 +66,17 @@ class MainView:
         """
         self._screen.destroy()
 
+    def hide_help(self):
+        """
+        Hide the help modal window.
+
+        NOOP if no modal help has been created.
+
+        """
+        if self._modal_help:
+            self._modal_help.destroy()
+            self._modal_help = None
+
     def hide_loading_indicator(self):
         """
         Hide the loading indicator.
@@ -74,6 +86,7 @@ class MainView:
         """
         if self._modal_loading:
             self._modal_loading.destroy()
+            self._modal_loading = None
 
     def hide_message(self):
         """
@@ -84,6 +97,7 @@ class MainView:
         """
         if self._modal_message:
             self._modal_message.destroy()
+            self._modal_message = None
 
     @property
     def last_render_timestamp(self):
@@ -130,6 +144,15 @@ class MainView:
         """
         return self._input_source.sample_input()
 
+    def show_help(self):
+        """
+        Display a modal window with help and/or a key map.
+
+        """
+        if self._modal_help:
+            self._modal_help.destroy()
+        self._modal_help = self._modal_factory.create_help()
+
     def show_loading_indicator(self):
         """
         Display an indication to the user that the application is waiting.
@@ -141,7 +164,6 @@ class MainView:
         if self._modal_loading:
             self._modal_loading.destroy()
         self._modal_loading = self._modal_factory.create_spinner()
-        self._modal_loading.show()
 
     def show_message(self, message):
         """
@@ -151,4 +173,3 @@ class MainView:
         if self._modal_message:
             self._modal_message.destroy()
         self._modal_message = self._modal_factory.create_message(message)
-        self._modal_message.show()

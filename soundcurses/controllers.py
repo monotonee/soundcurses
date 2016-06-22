@@ -49,8 +49,10 @@ class MainController:
             state (BaseState): From local states module.
 
         """
+        if self._current_state:
+            self._current_state.stop()
         self._current_state = state
-        self._current_state.enter()
+        self._current_state.start()
 
     def start_application(self):
         """

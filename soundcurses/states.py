@@ -5,14 +5,16 @@ This module defines the constituent parts of a basic finite state machine
 implemented with the state pattern. The main controller acts as the state
 context and switches state according to user interactions.
 
-Note that I have grudgingly allowed tigher coupling between the state objects
+Note that I have grudgingly allowed tighter coupling between the state objects
 and the controller. Previously, the state objects were only aware of a "context"
 interface but states need the ability to call controller-level functions such as
 stopping the application. Therefore, the state objects are now aware of the
-controller and its public interface. The other option was to pass in a command
-factory from which the state objects could create and execute commands such as
-"stop application". If many such commands are needed beyond the one or two, then
-the command factory will probably be implemented instead.
+controller and its public interface.
+
+The other option was to pass in a command factory from which the state objects
+could create and execute commands such as "stop application". If many such
+commands are needed beyond the one or two, then the command factory will
+probably be implemented instead.
 
 """
 
@@ -25,7 +27,8 @@ class BaseState(metaclass=abc.ABCMeta):
 
     """
 
-    def __init__(self, input_mapper, controller, state_factory):
+    def __init__(self, input_mapper, controller, state_factory,
+        previous_state=None):
         """
         Constructor.
 
@@ -38,19 +41,18 @@ class BaseState(metaclass=abc.ABCMeta):
 
         """
         self._controller = controller
-        self._state_factory = state_factory
         self._input_mapper = input_mapper
+        self._previous_state = previous_state
+        self._state_factory = state_factory
 
-    @abc.abstractmethod
-    def enter(self):
+    def start(self):
         """
         Perform main tasks immediately after state is loaded.
 
         """
         pass
 
-    @abc.abstractmethod
-    def exit(self):
+    def stop(self):
         """
         Perform tasks immediately before state is unloaded.
 
@@ -68,7 +70,6 @@ class BaseState(metaclass=abc.ABCMeta):
         """
         pass
 
-    @abc.abstractmethod
     def run_interval_tasks(self):
         """
         Run tasks that are required to be run on regular interval.
@@ -89,25 +90,39 @@ class HelpState(BaseState):
     When in this state, application is displaying a modal window containing
     key-to-action mappings.
 
+    Possible actions are:
+        close help window
+
+    Can transition to states:
+        previous state (state that loaded the help state)
+
     """
 
-    @abc.abstractmethod
-    def enter(self):
+    def __init__(self, input_mapper, controller, state_factory, view,
+        previous_state=None):
+        """
+        Constructor.
+
+        """
+        super().__init__(input_mapper, controller, state_factory,
+            previous_state=previous_state)
+
+        self._view = view
+
+    def start(self):
         """
         Perform main tasks immediately after state is loaded.
 
         """
-        pass
+        self._view.show_help()
 
-    @abc.abstractmethod
-    def exit(self):
+    def stop(self):
         """
         Perform tasks immediately before state is unloaded.
 
         """
-        pass
+        self._view.hide_help()
 
-    @abc.abstractmethod
     def handle_input(self, action):
         """
         Perform tasks in response to user input.
@@ -116,20 +131,8 @@ class HelpState(BaseState):
             action: A constant value from the local user input module.
 
         """
-        pass
-
-    @abc.abstractmethod
-    def run_interval_tasks(self):
-        """
-        Run tasks that are required to be run on regular interval.
-
-        As long as the state remains loaded, this method will be called once per
-        main loop cycle. Do not depend on any specific execution interval. In
-        a given main loop iteration, this method will be called before the call
-        to the screen's render method.
-
-        """
-        pass
+        if action == self._input_mapper.ACTION_CLOSE:
+            self._controller.set_state(self._previous_state)
 
 
 class NoUsernameState(BaseState):
@@ -147,8 +150,9 @@ class NoUsernameState(BaseState):
         username loaded
 
     """
+
     def __init__(self, input_mapper, controller, state_factory,
-        model, view):
+        model, view, previous_state=None):
         """
         Constructor. Override parent.
 
@@ -159,7 +163,8 @@ class NoUsernameState(BaseState):
                 start and stop loading animation.
 
         """
-        super().__init__(input_mapper, controller, state_factory)
+        super().__init__(input_mapper, controller, state_factory,
+            previous_state=previous_state)
         self._future_resolve_username = None
         self._model = model
         self._view = view
@@ -210,20 +215,6 @@ class NoUsernameState(BaseState):
             self._model.current_user = user
             self._view.hide_loading_indicator()
 
-    def enter(self):
-        """
-        Override parent.
-
-        """
-        pass
-
-    def exit(self):
-        """
-        Override parent.
-
-        """
-        pass
-
     def handle_input(self, action):
         """
         Override parent.
@@ -236,7 +227,8 @@ class NoUsernameState(BaseState):
         elif action == self._input_mapper.ACTION_ENTER_USERNAME:
             self._prompt_username()
         elif action == self._input_mapper.ACTION_HELP:
-            pass
+            self._controller.set_state(
+                self._state_factory.create_help(self._controller, self))
 
     def run_interval_tasks(self):
         """
@@ -267,7 +259,22 @@ class StateFactory:
         self._model = model
         self._view = view
 
-    def create_no_username(self, context):
+    def create_help(self, context, previous_state=None):
+        """
+        Create a "no username" state object.
+
+        Args:
+            context: The state pattern context object.
+
+        """
+        return HelpState(
+            self._input_mapper,
+            context,
+            self,
+            self._view,
+            previous_state=previous_state)
+
+    def create_no_username(self, context, previous_state=None):
         """
         Create a "no username" state object.
 
@@ -280,4 +287,5 @@ class StateFactory:
             context,
             self,
             self._model,
-            self._view)
+            self._view,
+            previous_state=previous_state)

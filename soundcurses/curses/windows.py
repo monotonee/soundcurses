@@ -503,6 +503,8 @@ class ModalRegionBase:
     alerts or popups are temporary in nature and therefore ModalRegion instances
     expose a destroy method.
 
+    Note that, when created, modal regions are visible by default.
+
     Attributes:
         RESERVED_COLS (int): The number of columns inside the window onto which
             nothing can be written. Used for padding, border lines, etc.
@@ -867,10 +869,13 @@ class ModalRegionMessage(ModalRegionBase):
             msg_string (string): The message string.
 
         Raises:
-            ValueError: If string is too long to fit in window even at max size.
+            ValueError: If string is too long to fit in window even at max size
+                or string is empty.
 
         """
-        # If string too large for max window, no sense in continuing.
+        # Validate message string.
+        if not msg_string:
+            raise ValueError('Message string is empty.')
         max_avail_lines, max_avail_cols = self._get_avail_dimensions(
             self._max_lines, self._max_cols)
         max_lines_list = textwrap.wrap(msg_string, width=max_avail_cols)
@@ -920,6 +925,95 @@ class ModalRegionMessage(ModalRegionBase):
             self._window, '\n'.join(lines_list),
             avail_origin_y + coord_y, avail_origin_x + coord_x)
         self._msg_string.write()
+
+
+class ModalRegionHelp(ModalRegionBase):
+    """
+    A class that represents a modal message tht will display app key mappings.
+
+    Passed the input mapper object that maps raw input to application actions,
+    this specialized modal window will display a formatted listing of the keys
+    and associated actions.
+
+    """
+
+    def __init__(self, curses, screen, window_factory,
+        input_mapper, string_factory):
+        """
+        Constructor.
+
+        Args:
+            input_mapper (UserInputMapper): Contains key-to-action mappings.
+
+        """
+        super().__init__(curses, screen, window_factory)
+
+        self._help_string = None
+        self._string_factory = string_factory
+
+        self._init_help_string(input_mapper)
+
+    @staticmethod
+    def _format_special_key_string(special_key_str):
+        """
+        Convert a special key input string into human-readable form.
+
+        In the curses library, for example, the F1 keypress returns a string
+        "KEY_F(1)". This is ugly and would confuse my mother. This function
+        converts the raw string into the more common "F1" string.
+
+        Returns:
+            string: The formatted string.
+        """
+        formatted_str = special_key_str
+        formatted_str = formatted_str.replace('KEY_', '')
+        formatted_str = formatted_str.replace('(', '').replace(')', '')
+
+        return formatted_str
+
+    def _init_help_string(self, input_mapper):
+        """
+        Generate and write a help string from the available input mappings.
+
+        """
+        # Convert any special key strings into strings suitable for display.
+        display_keymap = {}
+        for key_str, action_str in input_mapper.keymap.items():
+            if self._is_special_key(key_str):
+                key_str = self._format_special_key_string(key_str)
+            display_keymap[key_str] = action_str
+
+        # Sort the key map dictionary by key.
+        ordered_keymap = collections.OrderedDict(sorted(display_keymap.items()))
+
+        # Build string lines list.
+        lines_list = []
+        for key_str, action_str in ordered_keymap.items():
+            lines_list.append(key_str + ': ' + action_str)
+
+        # Write string.
+        avail_origin_y, avail_origin_x = self._avail_origin
+        coord_y, coord_x = self._get_centered_coords(
+            self._avail_lines, self._avail_cols,
+            len(ordered_keymap), len(max(ordered_keymap.values(), key=len)))
+        self._help_string = self._string_factory.create_string(
+            self._window, '\n'.join(lines_list),
+            avail_origin_y + coord_y, avail_origin_x + coord_x)
+        self._help_string.write()
+
+    @staticmethod
+    def _is_special_key(key_string):
+        """
+        Determine whether the input key string is a special key value.
+
+        In the curses library, for example, the F1 keypress returns a string
+        "KEY_F(1)" nd is considered a special key string.
+
+        Returns:
+            bool: True if special key, false otherwise.
+
+        """
+        return key_string.startswith('KEY_')
 
 
 class ModalRegionPrompt(ModalRegionMessage):
@@ -977,7 +1071,7 @@ class ModalRegionFactory:
 
     """
     def __init__(self, curses, screen, window_factory, string_factory,
-        spinner_anim):
+        spinner_anim, input_mapper):
         """
         Constructor.
 
@@ -987,18 +1081,19 @@ class ModalRegionFactory:
 
         """
         self._curses = curses
+        self._input_mapper = input_mapper
         self._screen = screen
         self._spinner_anim = spinner_anim
         self._string_factory = string_factory
         self._window_factory = window_factory
 
-    def create_prompt(self, prompt_string):
+    def create_help(self):
         """
-        Create and return a new instance of a prompt modal.
+        Create and return a new instance of a help modal.
 
         """
-        return ModalRegionPrompt(self._curses, self._screen,
-            self._window_factory, prompt_string, self._string_factory)
+        return ModalRegionHelp(self._curses, self._screen,
+            self._window_factory, self._input_mapper, self._string_factory)
 
     def create_message(self, msg_string):
         """
@@ -1007,6 +1102,14 @@ class ModalRegionFactory:
         """
         return ModalRegionMessage(self._curses, self._screen,
             self._window_factory, msg_string, self._string_factory)
+
+    def create_prompt(self, prompt_string):
+        """
+        Create and return a new instance of a prompt modal.
+
+        """
+        return ModalRegionPrompt(self._curses, self._screen,
+            self._window_factory, prompt_string, self._string_factory)
 
     def create_spinner(self):
         """
