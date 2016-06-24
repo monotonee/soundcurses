@@ -86,10 +86,14 @@ class SoundcloudWrapper:
         self._current_user = user
         self.signal_change_current_user.emit()
 
-    def get_user_by_username(self, username):
+    def get_user(self, user_id=None, username=None):
         """
-        Contact the SoundCloud API and attempt to resolve a username string
-        to a SoundCloud API user ID.
+        Get the user data object for a given user identifier.
+
+        Either a user ID or a username string can be given, but not both. If
+        user ID, a simple user GET request wil be made. If username, then a
+        resolve API request will be made. Any errors will be attached to the
+        future.
 
         By default, the soundcloud library follows any HTTP redirects to a
         resolved user and will return a user data object. The user data object
@@ -103,14 +107,32 @@ class SoundcloudWrapper:
             https://developers.soundcloud.com/docs/api/reference#resolve
             https://developers.soundcloud.com/docs/api/reference#users
 
-        """
-        future = self._network_executor.submit(
-            self._soundcloud_client.get,
-            '/resolve',
-            url=self._construct_permalink_url('/' + str(username)))
+        Args:
+            user_id (str): A SoundCloud API user ID.
+            username (str): A SoundCloud.com username.
 
-        # import time
-        # future = self._network_executor.submit(time.sleep, 3)
+        Returns:
+            concurrent.futures.Future: A future object wrapping the async
+                network I/O.
+
+        Raises:
+            RuntimeError: If both or neither keyword arguments are passed.
+
+        """
+        # Validate arguments.
+        if (user_id and username) or (not user_id and not username):
+            raise RuntimeError('Must pass only a single user identifier.')
+
+        # Choose API call and execute.
+        if user_id:
+            future = self._network_executor.submit(
+                self._soundcloud_client.get,
+                '/users/' + user_id)
+        else:
+            future = self._network_executor.submit(
+                self._soundcloud_client.get,
+                '/resolve',
+                url=self._construct_permalink_url('/' + str(username)))
 
         return future
 

@@ -176,8 +176,7 @@ class NoUsernameState(BaseState):
         """
         username = self._view.prompt_username()
         self._view.show_loading_indicator()
-        self._future_resolve_username = self._model.get_user_by_username(
-            username)
+        self._future_resolve_username = self._model.get_user(username=username)
 
     def _verify_username(self):
         """
