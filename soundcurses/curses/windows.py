@@ -271,7 +271,7 @@ class StatusRegion:
         """
         username_string = None
         if self._username:
-            username_string = self._username.string
+            username_string = self._username.value
 
         return username_string
 
@@ -310,13 +310,7 @@ class NavRegion:
 
     """
 
-    NAV_ITEM_01_TRACKS = 'TRACKS'
-    NAV_ITEM_02_PLAYLISTS = 'PLAYLISTS'
-    NAV_ITEM_03_FAVORITES = 'FAVORITES'
-    NAV_ITEM_04_FOLLOWING = 'FOLLOWING'
-    NAV_ITEM_05_FOLLOWERS = 'FOLLOWERS'
-
-    def __init__(self, window, string_factory):
+    def __init__(self, window, string_factory, model):
         """
         Constructor.
 
@@ -330,6 +324,7 @@ class NavRegion:
 
         self._currently_highlighted_item = None
         self._highlighted_item_cycle = None
+        self._model = model
         self._nav_items = collections.OrderedDict()
         self._string_factory = string_factory
         self._window = window
@@ -365,11 +360,9 @@ class NavRegion:
         # yet known and are dependent upon the number of nav items and their
         # string lengths.
         total_char_count = 0
-        for attribute in dir(self):
-            if attribute.startswith('NAV_ITEM_'):
-                nav_item_display_string = getattr(self, attribute)
-                self._nav_items[nav_item_display_string] = None
-                total_char_count += len(nav_item_display_string)
+        for soubresource_name in self._model.avail_user_subresources:
+            total_char_count += len(soubresource_name)
+            self._nav_items[soubresource_name.upper()] = None
 
         # Calculate initial intra-nav-item spacing within window.
         # For now, ignore very narrow edge case window sizes.
@@ -403,7 +396,7 @@ class NavRegion:
 
     def _init_highlighted_item(self):
         """
-        Initialize the highlight iterator and highlight the default nav item.
+        Initialize the highlight iterator and highlight the first nav item.
 
         Called in constructor after the nav item initializer. Each item in cycle
         is a CursesString instance so "highlighting" is merely changing the
@@ -413,7 +406,7 @@ class NavRegion:
         self._highlighted_item_cycle = itertools.cycle(
             iter(self._nav_items.values()))
         self._currently_highlighted_item = next(self._highlighted_item_cycle)
-        self._currently_highlighted_item.style_reverse()
+        self._set_highighted_style(self._currently_highlighted_item)
 
     def _set_highighted_style(self, item):
         """
@@ -424,6 +417,17 @@ class NavRegion:
         """
         item.style_reverse()
 
+    @property
+    def selected_item(self):
+        """
+        Get the value of the currently-selected nav item.
+
+        Returns:
+            string: The nav item value.
+
+        """
+        return self._currently_highlighted_item.value
+
     def highlight_item(self, item_string):
         """
         Highlight a specific nav item.
@@ -433,6 +437,7 @@ class NavRegion:
 
         Raises:
             ValueError: If item is not a valid nav item.
+
         """
         if item_string not in self._nav_items:
             raise ValueError('Nonexistent nav menu item.')
@@ -443,7 +448,7 @@ class NavRegion:
 
         # "Fast-forward" cycle to match currently-highlighted item.
         for item in self._highlighted_item_cycle:
-            if item.string == self._currently_highlighted_item.string:
+            if item.value == self._currently_highlighted_item.value:
                 break
 
     def highlight_next(self):
@@ -1170,7 +1175,7 @@ class CursesString:
         self._string_lines_list = string.split('\n')
         self._window = window
         self.attr = attr
-        self.string = string
+        self._string = string
 
         self._validate_string()
 
@@ -1179,7 +1184,7 @@ class CursesString:
         Implement the length interface method for use with len().
 
         """
-        return len(self.string)
+        return len(self._string)
 
     @property
     def _string_lines(self):
@@ -1312,6 +1317,17 @@ class CursesString:
 
         """
         self.attr = self._curses.A_REVERSE
+
+    @property
+    def value(self):
+        """
+        Return the raw internal string value.
+
+        Returns:
+            string: The raw string value before line splitting or processing.
+
+        """
+        return self._string
 
     def write(self):
         """

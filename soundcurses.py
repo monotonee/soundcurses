@@ -41,6 +41,27 @@ def main(stdscr):
     # Compose string factory.
     string_factory = windows.CursesStringFactory(curses_wrapper)
 
+    # IMPORTANT: This soundcloud.Client instance is not to be touched.
+    # It is accessed exclusively by a separate thread. Its existence in the main
+    # thread is solely to allow the composition of function partials which are
+    # passed to the thread and executed.
+    #
+    # The "constant" HTTP_ERROR attribute is added to fix leaky abstraction
+    # in the soundcloud interface. Calling code (other than this) no longer
+    # has to be aware of soundcloud's internal method of making HTTP requests.
+    soundcloud_client = soundcloud.Client(
+        client_id='e9cd65934510bf631372af005c2f37b5',
+        use_ssl=True)
+    soundcloud_client.HTTP_ERROR = requests.exceptions.HTTPError
+
+    # Compose model.
+    network_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    model = models.Model(
+        soundcloud_client,
+        network_executor,
+        signalslot.Signal(),
+        signalslot.Signal())
+
     # Begin composing view regions.
     y_coord_offset = 0
 
@@ -72,7 +93,7 @@ def main(stdscr):
         y_coord_offset, 0,
         curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(nav_window)
-    nav_region = windows.NavRegion(nav_window, string_factory)
+    nav_region = windows.NavRegion(nav_window, string_factory, model)
     y_coord_offset += nav_window.lines
 
     # Compose content region.
@@ -85,27 +106,6 @@ def main(stdscr):
 
     # Compose input source.
     input_source = user_input.InputSource(curses_wrapper, stdscr_window)
-
-    # IMPORTANT: This soundcloud.Client instance is not to be touched.
-    # It is accessed exclusively by a separate thread. Its existence in the main
-    # thread is solely to allow the composition of function partials which are
-    # passed to the thread and executed.
-    #
-    # The "constant" HTTP_ERROR attribute is added to fix leaky abstraction
-    # in the soundcloud interface. Calling code (other than this) no longer
-    # has to be aware of soundcloud's internal method of making HTTP requests.
-    soundcloud_client = soundcloud.Client(
-        client_id='e9cd65934510bf631372af005c2f37b5',
-        use_ssl=True)
-    soundcloud_client.HTTP_ERROR = requests.exceptions.HTTPError
-
-    # Compose model.
-    network_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    model = models.Model(
-        soundcloud_client,
-        network_executor,
-        signalslot.Signal(),
-        signalslot.Signal())
 
     # Compose view(s).
     input_mapper = config.UserInputMapper()

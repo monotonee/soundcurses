@@ -26,8 +26,10 @@ class Model:
     with the least impact on code maintainability and testability.
 
     Attributes:
-        _SC_DOMAIN_NAME (string): Simply used to build SoundCloud permalink URLs
+        _SC_DOMAIN_NAME (str): Simply used to build SoundCloud permalink URLs
             when necessary for API calls.
+        AVAIL_USER_SUBRESOURCE_* (str): The subresources of a SoundCloud user
+            that are available for the user to choose.
         _soundcloud_client (soundcloud.Client): Used for building partial
             functions to pass to network thread. The soundcloud.Client is
             assumed to be non-thread-safe. Do not actually call any methods
@@ -43,6 +45,12 @@ class Model:
     """
 
     _SC_DOMAIN_NAME = 'soundcloud.com'
+
+    AVAIL_USER_SUBRESOURCE_01 = 'tracks'
+    AVAIL_USER_SUBRESOURCE_02 = 'playlists'
+    AVAIL_USER_SUBRESOURCE_03 = 'favorites'
+    AVAIL_USER_SUBRESOURCE_04 = 'followings'
+    AVAIL_USER_SUBRESOURCE_05 = 'followers'
 
     def __init__(self, soundcloud_client, network_executor,
         signal_current_user, signal_current_track_set):
@@ -76,6 +84,24 @@ class Model:
         return self._soundcloud_client.scheme \
             + self._SC_DOMAIN_NAME \
             + path
+
+    @property
+    def avail_user_subresources(self):
+        """
+        Get the available user subresources.
+
+        Examples include a user's tracks, playlists, favorites, etc.
+
+        Returns:
+            list: A list of subresource name strings.
+
+        """
+        subresource_strings = []
+        for attribute in dir(self):
+            if attribute.startswith('AVAIL_USER_SUBRESOURCE_'):
+                subresource_strings.append(getattr(self, attribute))
+
+        return subresource_strings
 
     @property
     def current_user(self):
