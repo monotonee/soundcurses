@@ -37,7 +37,7 @@ class MainController:
         while self._application_is_running:
             input_string = self._view.sample_input()
             action = self._input_mapper.resolve_input(input_string)
-            self._current_state.handle_input(action)
+            self._current_state.handle_action(action)
             self._current_state.run_interval_tasks()
             self._view.render()
 

@@ -60,7 +60,7 @@ class BaseState(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def handle_input(self, action):
+    def handle_action(self, action):
         """
         Perform tasks in response to user input.
 
@@ -123,7 +123,7 @@ class HelpState(BaseState):
         """
         self._view.hide_help()
 
-    def handle_input(self, action):
+    def handle_action(self, action):
         """
         Perform tasks in response to user input.
 
@@ -215,7 +215,7 @@ class NoUsernameState(BaseState):
             self._model.current_user = user
             self._view.hide_loading_indicator()
 
-    def handle_input(self, action):
+    def handle_action(self, action):
         """
         Override parent.
 
@@ -240,11 +240,67 @@ class NoUsernameState(BaseState):
             self._verify_username()
 
 
+class UsernameState(BaseState):
+    """
+    Class that defines the application's state when it has a valid username.
+
+    When in this state, application has received a valid username and has
+    retreived the user's complete data object. This state is invalid and will
+    not function without a username and user data present in the model.
+
+    With this username, this state will load the user's data for the currently-
+    selected nav item (a user's subresource). Currently, only a single
+    subresource set will be loaded at a time and other will be loaded only
+    when required at runtime.
+
+    Possible actions are:
+        close help window
+
+    Can transition to states:
+        previous state (state that loaded the help state)
+
+    """
+
+    def __init__(self, input_mapper, controller, state_factory,
+        previous_state=None):
+        """
+        Constructor.
+
+        """
+        super().__init__(input_mapper, controller, state_factory,
+            previous_state=previous_state)
+
+    def start(self):
+        """
+        Perform main tasks immediately after state is loaded.
+
+        """
+        pass
+
+    def stop(self):
+        """
+        Perform tasks immediately before state is unloaded.
+
+        """
+        pass
+
+    def handle_action(self, action):
+        """
+        Perform tasks in response to user input.
+
+        Args:
+            action: A constant value from the local user input module.
+
+        """
+        pass
+
+
 class StateFactory:
     """
     Factory to hide and centralize creation details of state objects.
 
     """
+
     def __init__(self, input_mapper, model, view):
         """
         Constructor.
