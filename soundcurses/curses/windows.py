@@ -956,7 +956,17 @@ class ModalRegionHelp(ModalRegionBase):
         self._help_string = None
         self._string_factory = string_factory
 
+        self._config()
         self._init_help_string(input_mapper)
+
+    def _config(self):
+        """
+        Perform configuration tasks on object instantiation.
+
+        Draws a border around the window.
+
+        """
+        self._window.border()
 
     @staticmethod
     def _format_special_key_string(special_key_str):
