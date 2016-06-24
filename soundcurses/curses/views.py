@@ -144,6 +144,23 @@ class MainView:
         """
         return self._input_source.sample_input()
 
+    def select_next_nav_item(self):
+        """
+        Select the next nav item in the nav region.
+
+        """
+        self._region_nav.select_next_item()
+
+    def selected_nav_item(self):
+        """
+        Return the currently-selected navigation item.
+
+        Returns:
+            string: The currently-selected nav item.
+
+        """
+        return self._region_nav.selected_item
+
     def show_help(self):
         """
         Display a modal window with help and/or a key map.

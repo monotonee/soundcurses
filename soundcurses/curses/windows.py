@@ -331,7 +331,7 @@ class NavRegion:
 
         self._configure()
         self._init_items()
-        self._init_highlighted_item()
+        self._init_selected_item()
 
     def _configure(self):
         """
@@ -394,7 +394,7 @@ class NavRegion:
             self._nav_items[nav_item] = nav_string
             x_coord += len(nav_string) + spacing_cols
 
-    def _init_highlighted_item(self):
+    def _init_selected_item(self):
         """
         Initialize the highlight iterator and highlight the first nav item.
 
@@ -428,7 +428,7 @@ class NavRegion:
         """
         return self._currently_highlighted_item.value
 
-    def highlight_item(self, item_string):
+    def select_item(self, item_string):
         """
         Highlight a specific nav item.
 
@@ -451,7 +451,7 @@ class NavRegion:
             if item.value == self._currently_highlighted_item.value:
                 break
 
-    def highlight_next(self):
+    def select_next_item(self):
         """
         Highlight the next navigation item.
 

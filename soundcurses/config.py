@@ -23,8 +23,9 @@ class UserInputMapper:
 
     """
 
-    ACTION_ENTER_USERNAME = 'Enter username'
     ACTION_CLOSE = 'Close window'
+    ACTION_CYCLE_NAV = 'Next nav item'
+    ACTION_ENTER_USERNAME = 'Enter username'
     ACTION_HELP = 'Help'
     ACTION_QUIT = 'Quit'
 
@@ -44,11 +45,11 @@ class UserInputMapper:
         Listed in ascending alphanumerical order by key.
 
         """
+        self._keymap['c'] = self.ACTION_CLOSE
         self._keymap['q'] = self.ACTION_QUIT
         self._keymap['u'] = self.ACTION_ENTER_USERNAME
-
         self._keymap['KEY_F(1)'] = self.ACTION_HELP
-        self._keymap['c'] = self.ACTION_CLOSE
+        self._keymap['\t'] = self.ACTION_CYCLE_NAV
 
     @property
     def keymap(self):

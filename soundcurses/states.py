@@ -213,6 +213,9 @@ class NoUsernameState(BaseState):
             user = future.result()
             self._model.current_user = user
             self._view.hide_loading_indicator()
+            self._controller.set_state(
+                self._state_factory.create_username(
+                    self._controller, previous_state=self))
 
     def handle_action(self, action):
         """
@@ -227,7 +230,8 @@ class NoUsernameState(BaseState):
             self._prompt_username()
         elif action == self._input_mapper.ACTION_HELP:
             self._controller.set_state(
-                self._state_factory.create_help(self._controller, self))
+                self._state_factory.create_help(
+                    self._controller, previous_state=self))
 
     def run_interval_tasks(self):
         """
@@ -260,7 +264,7 @@ class UsernameState(BaseState):
 
     """
 
-    def __init__(self, input_mapper, controller, state_factory,
+    def __init__(self, input_mapper, controller, state_factory, view,
         previous_state=None):
         """
         Constructor.
@@ -268,6 +272,8 @@ class UsernameState(BaseState):
         """
         super().__init__(input_mapper, controller, state_factory,
             previous_state=previous_state)
+
+        self._view = view
 
     def start(self):
         """
@@ -291,7 +297,10 @@ class UsernameState(BaseState):
             action: A constant value from the local user input module.
 
         """
-        pass
+        if action == self._input_mapper.ACTION_QUIT:
+            self._controller.stop_application()
+        elif action == self._input_mapper.ACTION_CYCLE_NAV:
+            self._view.select_next_nav_item()
 
 
 class StateFactory:
@@ -342,5 +351,20 @@ class StateFactory:
             context,
             self,
             self._model,
+            self._view,
+            previous_state=previous_state)
+
+    def create_username(self, context, previous_state=None):
+        """
+        Create a "username" state object.
+
+        Args:
+            context: The state pattern context object.
+
+        """
+        return UsernameState(
+            self._input_mapper,
+            context,
+            self,
             self._view,
             previous_state=previous_state)
