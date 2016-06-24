@@ -101,7 +101,7 @@ def main(stdscr):
 
     # Compose model.
     network_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    model = models.SoundcloudWrapper(
+    model = models.Model(
         soundcloud_client,
         network_executor,
         signalslot.Signal(),

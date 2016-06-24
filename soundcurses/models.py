@@ -5,9 +5,9 @@ Defines the application model components.
 
 import concurrent.futures
 
-class SoundcloudWrapper:
+class Model:
     """
-    Wrapper for Soundcloud library.
+    The application model.
 
     Behind the scenes, manages communication with a separate network I/O
     thread in which the communication with the SoundCloud API takes place.
