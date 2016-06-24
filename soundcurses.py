@@ -13,7 +13,7 @@ import signalslot
 import soundcloud
 
 # Local imports.
-from soundcurses import (controllers, models, states)
+from soundcurses import (config, controllers, models, states)
 from soundcurses.curses import (components, effects, screen, user_input, views,
     windows)
 
@@ -108,7 +108,7 @@ def main(stdscr):
         signalslot.Signal())
 
     # Compose view(s).
-    input_mapper = user_input.UserInputMapper()
+    input_mapper = config.UserInputMapper()
     modal_factory = windows.ModalRegionFactory(
         curses_wrapper,
         curses_screen,
