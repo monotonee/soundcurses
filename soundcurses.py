@@ -55,10 +55,12 @@ def main(stdscr):
     soundcloud_client.HTTP_ERROR = requests.exceptions.HTTPError
 
     # Compose model.
-    network_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+    thread_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    soundcloud_wrapper = models.SoundcloudWrapper(
+        soundcloud_client, thread_executor)
     model = models.Model(
-        soundcloud_client,
-        network_executor,
+        soundcloud_wrapper,
         signalslot.Signal(),
         signalslot.Signal())
 
@@ -133,7 +135,8 @@ def main(stdscr):
     controller = controllers.MainController(
         input_mapper,
         state_factory,
-        view)
+        view,
+        model)
 
     controller.start_application()
 

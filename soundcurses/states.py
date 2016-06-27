@@ -296,7 +296,6 @@ class UsernameState(BaseState):
         if self._nav_item_cycled:
             time_elapsed = time.time() - self._nav_item_cycle_timestamp
             if time_elapsed >= self.SUBRESOURCE_LOADING_DELAY:
-                self._view.show_loading_indicator()
                 self._nav_item_cycle_timestamp = None
                 self._nav_item_cycled = False
 
