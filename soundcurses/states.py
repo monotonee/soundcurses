@@ -262,7 +262,13 @@ class UsernameState(BaseState):
     Can transition to states:
         previous state (state that loaded the help state)
 
+    Attributes:
+        SUBRESOURCE_LOADING_DELAY (float): The delay after which a selected
+            subresource's data will be loaded.
+
     """
+
+    SUBRESOURCE_LOADING_DELAY = 1.0
 
     def __init__(self, input_mapper, controller, state_factory, view,
         previous_state=None):
@@ -273,7 +279,35 @@ class UsernameState(BaseState):
         super().__init__(input_mapper, controller, state_factory,
             previous_state=previous_state)
 
+        self._nav_item_cycle_timestamp = None
+        self._nav_item_cycled = False
         self._view = view
+
+    def _check_subresource_load_timer(self):
+        """
+        Execute subresource loading if the nav item delay has elapsed.
+
+        When cycling through nav items (each corresponding to a user
+        subresource), the subresource will nto be immediately loaded into the
+        content region. Once a given nav item has been selected for a certain
+        amount of time, only then will the corresponding subresource be loaded.
+
+        """
+        if self._nav_item_cycled:
+            time_elapsed = time.time() - self._nav_item_cycle_timestamp
+            if time_elapsed >= self.SUBRESOURCE_LOADING_DELAY:
+                self._view.show_loading_indicator()
+                self._nav_item_cycle_timestamp = None
+                self._nav_item_cycled = False
+
+    def _cycle_nav_item(self):
+        """
+        Select the next nav item and start subresource loading timer.
+
+        """
+        self._view.select_next_nav_item()
+        self._nav_item_cycled = True
+        self._nav_item_cycle_timestamp = time.time()
 
     def start(self):
         """
@@ -300,7 +334,14 @@ class UsernameState(BaseState):
         if action == self._input_mapper.ACTION_QUIT:
             self._controller.stop_application()
         elif action == self._input_mapper.ACTION_CYCLE_NAV:
-            self._view.select_next_nav_item()
+            self._cycle_nav_item()
+
+    def run_interval_tasks(self):
+        """
+        Override parent.
+
+        """
+        self._check_subresource_load_timer()
 
 
 class StateFactory:
