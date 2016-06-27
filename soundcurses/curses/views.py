@@ -33,17 +33,24 @@ class MainView:
         self._region_nav = region_nav
         self._screen = screen
 
-        self._subscribe_to_model()
+        self._connect_to_model()
 
-    def _subscribe_to_model(self):
+    def _connect_to_model(self):
         """
         Connect to the model object's events.
 
         """
-        self._model.signal_change_current_track_set.connect(
-            self._handle_current_track_set_change)
+        self._model.signal_change_current_subresource.connect(
+            self._handle_current_subresource_change)
         self._model.signal_change_current_user.connect(
             self._handle_current_user_change)
+
+    def _handle_current_subresource_change(self, **kwargs):
+        """
+        Respond to an update of the current track set data.
+
+        """
+        pass
 
     def _handle_current_user_change(self, **kwargs):
         """
@@ -51,13 +58,6 @@ class MainView:
 
         """
         self._region_status.username = self._model.current_user.username
-
-    def _handle_current_track_set_change(self, **kwargs):
-        """
-        Respond to an update of the current track set data.
-
-        """
-        pass
 
     def destroy(self):
         """
@@ -151,6 +151,7 @@ class MainView:
         """
         self._region_nav.select_next_item()
 
+    @property
     def selected_nav_item(self):
         """
         Return the currently-selected navigation item.

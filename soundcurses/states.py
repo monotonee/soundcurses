@@ -214,8 +214,10 @@ class NoUsernameState(BaseState):
             self._model.current_user = user
             self._view.hide_loading_indicator()
             self._controller.set_state(
-                self._state_factory.create_username(
-                    self._controller, previous_state=self))
+                self._state_factory.create_subresource_state(
+                    self._view.selected_nav_item,
+                    self._controller,
+                    previous_state=self))
 
     def handle_action(self, action):
         """
@@ -243,7 +245,7 @@ class NoUsernameState(BaseState):
             self._verify_username()
 
 
-class UsernameState(BaseState):
+class SubresourceState(BaseState):
     """
     Class that defines the application's state when it has a valid username.
 
@@ -265,12 +267,14 @@ class UsernameState(BaseState):
     Attributes:
         SUBRESOURCE_LOADING_DELAY (float): The delay after which a selected
             subresource's data will be loaded.
+        _future_user_subresource (concurrent.futures.Future): A future from the
+            model that returns requested subresource data.
 
     """
 
     SUBRESOURCE_LOADING_DELAY = 1.0
 
-    def __init__(self, input_mapper, controller, state_factory, view,
+    def __init__(self, input_mapper, controller, state_factory, model, view,
         previous_state=None):
         """
         Constructor.
@@ -279,17 +283,19 @@ class UsernameState(BaseState):
         super().__init__(input_mapper, controller, state_factory,
             previous_state=previous_state)
 
+        self._future_user_subresource = None
+        self._model = model
         self._nav_item_cycle_timestamp = None
         self._nav_item_cycled = False
         self._view = view
 
-    def _check_subresource_load_timer(self):
+    def _check_nav_item_cycle_timer(self):
         """
         Execute subresource loading if the nav item delay has elapsed.
 
         When cycling through nav items (each corresponding to a user
-        subresource), the subresource will nto be immediately loaded into the
-        content region. Once a given nav item has been selected for a certain
+        subresource), the subresource will not be immediately loaded into the
+        content region. Once a given nav item remains selected for a certain
         amount of time, only then will the corresponding subresource be loaded.
 
         """
@@ -298,6 +304,19 @@ class UsernameState(BaseState):
             if time_elapsed >= self.SUBRESOURCE_LOADING_DELAY:
                 self._nav_item_cycle_timestamp = None
                 self._nav_item_cycled = False
+                self._view.show_loading_indicator()
+                # self._load_user_subresource(self._view.selected_nav_item)
+
+    def _check_future_user_subresource(self):
+        """
+        Check the status of the future associated with user subresrc loading.
+
+        Called in the interval tasks function.
+
+        """
+        if self._future_user_subresource \
+            and self._future_user_subresource.done():
+            self._set_current_user_subresource()
 
     def _cycle_nav_item(self):
         """
@@ -305,15 +324,46 @@ class UsernameState(BaseState):
 
         """
         self._view.select_next_nav_item()
-        self._nav_item_cycled = True
         self._nav_item_cycle_timestamp = time.time()
+        self._nav_item_cycled = True
+
+    def _load_user_subresource(self, subresource):
+        """
+        Fetch subresource data from model and set to current subresource.
+
+        The view responds to changes in the current subresource by displaying
+        the new data in the content region.
+
+        Args:
+            subresource (str): A subresource name. The string should always
+                correspond to one of the available subresource strings found
+                in the model and displayed in the view's nav region.
+
+        """
+        self._future_user_subresource = self._model.get_user_subresource(
+            self._model.current_user.id, subresource)
+
+    def _set_current_user_subresource(self):
+        """
+        Consume the user subresource future and update model.
+
+        When user subresource data has been fetched from the model, set the
+        current user subresource data to be displayed in the view. The view
+        will update the content region.
+
+        Only called from a method that checks the existence and status of the
+        future. Not designed to be called separately.
+
+        """
+        pass
 
     def start(self):
         """
         Perform main tasks immediately after state is loaded.
 
         """
-        pass
+        if not self._model.current_user:
+            raise RuntimeError('Invalid state. No user data loaded.')
 
     def stop(self):
         """
@@ -340,7 +390,25 @@ class UsernameState(BaseState):
         Override parent.
 
         """
-        self._check_subresource_load_timer()
+        self._check_nav_item_cycle_timer()
+        # self._check_future_user_subresource()
+
+
+class TracksLoadedState(SubresourceState):
+    """
+    A class that represents a state in which a user's tracks subresrc is loaded.
+
+    """
+
+    def __init__(self, input_mapper, controller, state_factory, model, view,
+        previous_state=None):
+        """
+        Constructor
+
+        """
+        super().__init__(input_mapper, controller, state_factory, model, view,
+        previous_state=previous_state)
+
 
 
 class StateFactory:
@@ -394,17 +462,30 @@ class StateFactory:
             self._view,
             previous_state=previous_state)
 
-    def create_username(self, context, previous_state=None):
+    def create_subresource_state(self, subresource, context,
+        previous_state=None):
         """
-        Create a "username" state object.
+        Create a "subresource" state object.
 
         Args:
+            subresource (str): A valid subresource name string.
             context: The state pattern context object.
+            previous_state: A state object.
+
+        Raises:
+            ValueError: If a state cannot be found for given subresource name.
 
         """
-        return UsernameState(
+        if subresource == self._model.USER_SUBRESRC_01_TRACKS:
+            state = TracksLoadedState
+        else:
+            raise RuntimeError(
+                'No state available for subresource "' + subresource + '"')
+
+        return state(
             self._input_mapper,
             context,
             self,
+            self._model,
             self._view,
             previous_state=previous_state)

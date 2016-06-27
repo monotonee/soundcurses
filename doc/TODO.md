@@ -30,3 +30,4 @@ Hard-code in config the min column screen dimensions
 Hold weak references to windows in the the screen object?
 Improve bute-force iterative window resizing check in ModalRegionPrompt
 Ensure that a window cannot be added to the screen object twice.
+Cache user subresources such as tracks and favorites lists in a local DB of some sort.

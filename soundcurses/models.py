@@ -28,48 +28,46 @@ class Model:
     with the least impact on code maintainability and testability.
 
     Attributes:
-        _SC_DOMAIN_NAME (str): Simply used to build SoundCloud permalink URLs
-            when necessary for API calls.
-        AVAIL_USER_SUBRESOURCE_* (str): The subresources of a SoundCloud user
+        USER_SUBRESRC_* (str): The subresources of a SoundCloud user
             that are available for the user to choose.
-        _soundcloud_client (soundcloud.Client): Used for building partial
-            functions to pass to network thread. The soundcloud.Client is
-            assumed to be non-thread-safe. Do not actually call any methods
-            on the Client in this class. Leave execution to the recipient
-            of objects pushed into the output_queue.
-        _soundcloud_domain_name (string): The SoundCloud domain name.
-
-        signal_current_tracks (signalslot.Signal): Indicates that current track
-            set has been changed.
+        _current_subresource (soundcloud.Resource): Data currently displayed
+            by the view in the content region.
+        _current_user (soundcloud.Resource): User data displayed by the view
+            in the status region.
+        _soundcloud_client (SoundcloudWrapper): Data access layer.
+        signal_current_subresource (signalslot.Signal): Indicates that current
+            SoundCloud user subresource displayed in the content region has
+            changed.
         signal_current_user (signalslot.Signal): Indicates that current user has
             been changed.
 
     """
 
-    AVAIL_USER_SUBRESOURCE_01 = 'tracks'
-    AVAIL_USER_SUBRESOURCE_02 = 'playlists'
-    AVAIL_USER_SUBRESOURCE_03 = 'favorites'
-    AVAIL_USER_SUBRESOURCE_04 = 'followings'
-    AVAIL_USER_SUBRESOURCE_05 = 'followers'
+    USER_SUBRESRC_01_TRACKS = 'tracks'
+    USER_SUBRESRC_02_PLAYLISTS = 'playlists'
+    USER_SUBRESRC_03_FAVORITES = 'favorites'
+    USER_SUBRESRC_04_FOLLOWINGS = 'followings'
+    USER_SUBRESRC_05_FOLLOWERS = 'followers'
 
     def __init__(self, soundcloud_client, signal_current_user,
-        signal_current_track_set):
+        signal_current_subresource):
         """
         Constructor.
 
         Args:
-            soundcloud_client (soundcloud.Client): Used for building partial
-                functions to pass to network thread. The soundcloud.Client is
-                assumed to be non-thread-safe. Do not actually call any methods
-                on the Client in this class. Leave execution to the recipient
-                of objects pushed into the output_queue.
+            soundcloud_client (SoundcloudWrapper):
 
         """
+        self._current_user_subresource_data = None
+        self._current_user_subresource_name = None
         self._current_user = None
         self._soundcloud_client = soundcloud_client
 
-        self.signal_change_current_track_set = signal_current_track_set
+        self.avail_user_subresources = []
+        self.signal_change_current_subresource = signal_current_subresource
         self.signal_change_current_user = signal_current_user
+
+        self._init_avail_user_subresources()
 
     @property
     def HTTP_ERROR(self):
@@ -79,23 +77,24 @@ class Model:
         """
         return self._soundcloud_client.HTTP_ERROR
 
-    @property
-    def avail_user_subresources(self):
+    def _init_avail_user_subresources(self):
         """
-        Get the available user subresources.
+        Initialize the available user subresources' strings.
 
         Examples include a user's tracks, playlists, favorites, etc.
 
-        Returns:
-            list: A list of subresource name strings.
-
         """
-        subresource_strings = []
         for attribute in dir(self):
-            if attribute.startswith('AVAIL_USER_SUBRESOURCE_'):
-                subresource_strings.append(getattr(self, attribute))
+            if attribute.startswith('USER_SUBRESRC_'):
+                self.avail_user_subresources.append(getattr(self, attribute))
 
-        return subresource_strings
+    @property
+    def current_user_subresource_data(self):
+        return self._current_user_subresource_data
+
+    @property
+    def current_user_subresource_name(self):
+        return self._current_user_subresource_name
 
     @property
     def current_user(self):
@@ -123,12 +122,45 @@ class Model:
             user_id=user_id,
             username=username)
 
+    def get_user_subresource(self, user_id, subresource):
+        """
+        Retrieve user subresource data.
+
+        User subresource data examples include a user's favorites, playlists,
+        tracks, etc.
+
+        See: https://developers.soundcloud.com/docs/api/reference#users
+
+        Args:
+            user_id (str): A SoundCloud user ID.
+            subresource (str): One of the available subresource strings.
+
+        Returns:
+            concurrent.futures.Future
+
+        Raises:
+            ValueError: If the passed subresource string is not one of the
+                available subresources.
+
+        """
+        # Validate arguments.
+        if subresource not in self.avail_user_subresources:
+            raise ValueError('Invalid user subresource: "' + subresource + '"')
+
+        return self._soundcloud_client.get_user_subresource(
+            user_id, subresource)
+
     def run_interval_tasks(self):
         """
         Run tasks once per main loop iteration. Called in main loop.
 
         """
         self._soundcloud_client.run_interval_tasks()
+
+    def set_current_user_subresource(self, name, data):
+        self._current_user_subresource_data = data
+        self._current_user_subresource_name = name
+        self.signal_change_current_subresource.emit()
 
 
 class SoundcloudWrapper:
@@ -187,6 +219,26 @@ class SoundcloudWrapper:
                 user = future.result()
                 self._cached_usernames[user.username] = user.id
                 self._cached_users[user.id] = user
+
+        return cache_completed
+
+    def _cache_user_subresource(self, future, user_id, subresource):
+        """
+        Cache user subresource data object returned by SoundCloud API.
+
+        Designed to be called as part of the main loop (interval tasks). Will
+        only cache data if future is done and no exceptions were raised.
+
+        Returns:
+            bool: True if cached, false otherwise.
+
+        """
+        cache_completed = False
+        if future.done():
+            cache_completed = True
+            if not future.exception():
+                data = future.result()
+                setattr(self._cached_users[user_id], subresource, data)
 
         return cache_completed
 
@@ -284,6 +336,47 @@ class SoundcloudWrapper:
                     '/users/' + user_id)
                 self._cache_queue.append(
                     functools.partial(self._cache_user, future))
+
+        return future
+
+    def get_user_subresource(self, user_id, subresource):
+        """
+        Retrieve user subresource data.
+
+        User subresource data examples include a user's favorites, playlists,
+        tracks, etc.
+
+        See: https://developers.soundcloud.com/docs/api/reference#users
+
+        Args:
+            user_id (str): A SoundCloud user ID.
+            subresource (str): One of the available subresource strings.
+
+        Returns:
+            concurrent.futures.Future
+
+        """
+        # Check cache first. The concurrent.futures.Future documentaion states
+        # that futures should not be created directly so, to produce a future,
+        # even cache fetches are submitted to executor for now. This smells.
+        cached_data_used = False
+        if user_id in self._cached_users:
+            cached_subresource = getattr(
+                self._cached_users[user_id], subresource, None)
+            if cached_subresource:
+                bound_callable = functools.partial(
+                    lambda subresrc: subresrc, cached_subresource)
+                future = self._thread_executor.submit(bound_callable)
+                cached_data_used = True
+
+        # If neccesary, choose API call and execute.
+        if not cached_data_used:
+            future = self._thread_executor.submit(
+                self._soundcloud_client.get,
+                '/users/' + user_id + '/' + subresource)
+            self._cache_queue.append(
+                functools.partial(
+                    self._cache_user_subresource, future, user_id, subresource))
 
         return future
 

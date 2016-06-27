@@ -351,6 +351,8 @@ class NavRegion:
         dictionary. Dict keys are nav item constant values, dict values are the
         CursesString objects of the character strings written to window.
 
+        Note that the subresource strings are converted to uppercase.
+
         Currently does not accound for very narrow screen widths.
 
         Called in constructor before the highlighted item initializer.
@@ -422,11 +424,13 @@ class NavRegion:
         """
         Get the value of the currently-selected nav item.
 
+        Note that the values are converted into lowercase.
+
         Returns:
             string: The nav item value.
 
         """
-        return self._currently_highlighted_item.value
+        return self._currently_highlighted_item.value.lower()
 
     def select_item(self, item_string):
         """
