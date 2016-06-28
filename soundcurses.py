@@ -14,8 +14,7 @@ import soundcloud
 
 # Local imports.
 from soundcurses import (config, controllers, models, states)
-from soundcurses.curses import (components, effects, screen, user_input, views,
-    windows)
+from soundcurses.curses import (effects, screen, user_input, views, windows)
 
 def main(stdscr):
     """
@@ -28,7 +27,7 @@ def main(stdscr):
     """
 
     # Wrap curses
-    curses_wrapper = components.CursesWrapper(curses, locale)
+    curses_wrapper = screen.CursesWrapper(curses, locale)
 
     # Compose screen.
     curses_screen = screen.CursesScreen(
@@ -59,10 +58,7 @@ def main(stdscr):
     thread_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     soundcloud_wrapper = models.SoundcloudWrapper(
         soundcloud_client, thread_executor)
-    model = models.Model(
-        soundcloud_wrapper,
-        signalslot.Signal(),
-        signalslot.Signal())
+    model = models.Model(soundcloud_wrapper, signalslot.Signal())
 
     # Begin composing view regions.
     y_coord_offset = 0
@@ -130,8 +126,8 @@ def main(stdscr):
     # Compose controllers.
     state_factory = states.StateFactory(
         input_mapper,
-        model,
-        view)
+        view,
+        model)
     controller = controllers.MainController(
         input_mapper,
         state_factory,

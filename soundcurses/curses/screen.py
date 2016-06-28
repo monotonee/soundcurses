@@ -143,6 +143,70 @@ class CursesScreen:
         self.signal_rendered.emit()
 
 
+class CursesWrapper:
+    """ Wraps the bare curses library interface, applying desired configurations
+    at construction and passing calls through to underlying curses object.
+
+    """
+
+    def __init__(self, curses, locale):
+        self._curses = curses
+        self._locale = locale
+        self.character_encoding = None
+
+        self._configure()
+        self._set_character_encoding()
+
+    def __getattr__(self, name):
+        """ According to my current knowledge, allows attribute access
+        passthrough to underlying curses object. If attribute is nonexistent,
+        AttributeError is raised by getattr() and allowed to bubble.
+
+        """
+        return getattr(self._curses, name)
+
+    def _configure(self):
+        """ Applies necessary setup configurations for app.
+
+        See https://docs.python.org/3.5/howto/curses.html#curses-howto
+
+        From https://docs.python.org/3.5/library/curses.html#curses.initscr
+        "If there is an error opening the terminal, the underlying curses
+        library may cause the interpreter to exit."
+
+        Note: curses.initscr() must be called before curses.savetty().
+
+        """
+        # Save current state.
+        self._curses.savetty()
+        # Make cursor invisible.
+        self._curses.curs_set(0)
+
+        # Define color pairs.
+        # self._curses.init_pair(
+            # 1, self._curses.COLOR_BLACK, self._curses.COLOR_WHITE)
+
+    def _set_character_encoding(self):
+        """ Determine environment locale and get encoding.
+
+        See https://docs.python.org/3.5/library/curses.html
+
+        """
+        # Set current locale to user default as specified in LANG env variable.
+        self._locale.setlocale(self._locale.LC_ALL, '')
+        self.character_encoding = self._locale.getpreferredencoding()
+
+    def destroy(self):
+        """ Relinquish control of the screen. Also returns window settings
+        not set by curses.wrapper() to original values.
+
+        """
+        # Restore original terminal configuration.
+        self._curses.resetty()
+        # Release window control.
+        self._curses.endwin()
+
+
 class WindowRenderQueue:
     """ This class is designed to abstract the ordering of curses windows
     pushed onto the queue for later rendering.
@@ -253,19 +317,3 @@ class WindowRenderQueue:
 
         for empty_render_layer in empty_render_layers:
             del self._queue[empty_render_layer]
-
-    # @property
-    # def top_render_layer(self):
-        # """
-        # Get the highest render layer integer.
-
-        # Render layers are defined by integers. This method returns the highest
-        # integer currently present in render layer hierarchy (the queue). SInce
-        # the internal queue is keyed by render layer, return the highest queue
-        # key.
-
-        # Since render layers are deleted when empty, this will only compare
-        # layers occupied by one or more windows.
-
-        # """
-        # return max(self._queue.keys())
