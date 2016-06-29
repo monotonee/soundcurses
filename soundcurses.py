@@ -14,7 +14,8 @@ import soundcloud
 
 # Local imports.
 from soundcurses import (config, controllers, models, states)
-from soundcurses.curses import (effects, screen, user_input, views, windows)
+from soundcurses.curses import (effects, regions, screen, user_input, views,
+    windows)
 
 def main(stdscr):
     """
@@ -73,7 +74,7 @@ def main(stdscr):
         y_coord_offset, 0,
         curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(header_window)
-    header_region = windows.HeaderRegion(header_window, curses_wrapper)
+    header_region = regions.HeaderRegion(header_window, curses_wrapper)
     y_coord_offset += header_window.lines
 
     # Compose status region.
@@ -82,7 +83,7 @@ def main(stdscr):
         y_coord_offset, 0,
         curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(status_window)
-    status_region = windows.StatusRegion(status_window, string_factory)
+    status_region = regions.StatusRegion(status_window, string_factory)
     y_coord_offset += status_window.lines
 
     # Compose nav region.
@@ -91,7 +92,7 @@ def main(stdscr):
         y_coord_offset, 0,
         curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(nav_window)
-    nav_region = windows.NavRegion(nav_window, string_factory, model)
+    nav_region = regions.NavRegion(nav_window, string_factory, model)
     y_coord_offset += nav_window.lines
 
     # Compose content region.
@@ -100,14 +101,14 @@ def main(stdscr):
         y_coord_offset, 0,
         curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(content_window)
-    content_region = windows.ContentRegion(content_window, curses_wrapper)
+    content_region = regions.ContentRegion(content_window, curses_wrapper)
 
     # Compose input source.
     input_source = user_input.InputSource(curses_wrapper, stdscr_window)
 
     # Compose view(s).
     input_mapper = config.UserInputMapper()
-    modal_factory = windows.ModalRegionFactory(
+    modal_factory = regions.ModalRegionFactory(
         curses_wrapper,
         curses_screen,
         window_factory,

@@ -40,17 +40,8 @@ class MainView:
         Connect to the model object's events.
 
         """
-        self._model.signal_change_current_subresource.connect(
-            self._handle_current_subresource_change)
         self._model.signal_change_current_user.connect(
             self._handle_current_user_change)
-
-    def _handle_current_subresource_change(self, **kwargs):
-        """
-        Respond to an update of the current track set data.
-
-        """
-        pass
 
     def _handle_current_user_change(self, **kwargs):
         """
@@ -58,6 +49,28 @@ class MainView:
 
         """
         self._region_status.username = self._model.current_user.username
+
+    @property
+    def current_content_lines(self):
+        """
+        Get the lines currently displayed in the content region.
+
+        Returns:
+            list: A list of strings.
+
+        """
+        return self._region_content.content_lines
+
+    @current_content_lines.setter
+    def current_content_lines(self, lines_list):
+        """
+        Set the lines of content to be displayed in the content region.
+
+        Args:
+            lines_list (list): A list of strings.
+
+        """
+        self._region_content.content_lines = lines_list
 
     def destroy(self):
         """

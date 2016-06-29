@@ -27,7 +27,7 @@ class BaseState(metaclass=abc.ABCMeta):
 
     """
 
-    def __init__(self, input_mapper, controller, state_factory,
+    def __init__(self, input_mapper, controller, state_factory, view,
         previous_state=None):
         """
         Constructor.
@@ -44,20 +44,24 @@ class BaseState(metaclass=abc.ABCMeta):
         self._input_mapper = input_mapper
         self._previous_state = previous_state
         self._state_factory = state_factory
+        self._view = view
 
-    def start(self):
+    def _display_temp_message(self, message):
         """
-        Perform main tasks immediately after state is loaded.
+        Display a message window in the view for a few seconds.
+
+        Manual rendering must be performed since this function will be
+        blocking this thread's main loop that contains the interval
+        render call.
+
+        Args:
+            message (str): The message to display in the window.
 
         """
-        pass
-
-    def stop(self):
-        """
-        Perform tasks immediately before state is unloaded.
-
-        """
-        pass
+        self._view.show_message(message)
+        self._view.render()
+        time.sleep(2)
+        self._view.hide_message()
 
     @abc.abstractmethod
     def handle_action(self, action):
@@ -78,6 +82,20 @@ class BaseState(metaclass=abc.ABCMeta):
         main loop cycle. Do not depend on any specific execution interval. In
         a given main loop iteration, this method will be called before the call
         to the screen's render method.
+
+        """
+        pass
+
+    def start(self):
+        """
+        Perform main tasks immediately after state is loaded.
+
+        """
+        pass
+
+    def stop(self):
+        """
+        Perform tasks immediately before state is unloaded.
 
         """
         pass
@@ -104,10 +122,21 @@ class HelpState(BaseState):
         Constructor.
 
         """
-        super().__init__(input_mapper, controller, state_factory,
+        super().__init__(input_mapper, controller, state_factory, view,
             previous_state=previous_state)
 
         self._view = view
+
+    def handle_action(self, action):
+        """
+        Perform tasks in response to user input.
+
+        Args:
+            action: A constant value from the local user input module.
+
+        """
+        if action == self._input_mapper.ACTION_CLOSE:
+            self._controller.set_state(self._previous_state)
 
     def start(self):
         """
@@ -122,17 +151,6 @@ class HelpState(BaseState):
 
         """
         self._view.hide_help()
-
-    def handle_action(self, action):
-        """
-        Perform tasks in response to user input.
-
-        Args:
-            action: A constant value from the local user input module.
-
-        """
-        if action == self._input_mapper.ACTION_CLOSE:
-            self._controller.set_state(self._previous_state)
 
 
 class NoUsernameState(BaseState):
@@ -152,7 +170,7 @@ class NoUsernameState(BaseState):
     """
 
     def __init__(self, input_mapper, controller, state_factory,
-        model, view, previous_state=None):
+        view, model, previous_state=None):
         """
         Constructor. Override parent.
 
@@ -163,7 +181,7 @@ class NoUsernameState(BaseState):
                 start and stop loading animation.
 
         """
-        super().__init__(input_mapper, controller, state_factory,
+        super().__init__(input_mapper, controller, state_factory, view,
             previous_state=previous_state)
         self._future_resolve_username = None
         self._model = model
@@ -203,10 +221,8 @@ class NoUsernameState(BaseState):
                 # blocking this thread's main loop that contains the interval
                 # render call.
                 self._view.hide_loading_indicator()
-                self._view.show_message('Username not found. Please try again.')
-                self._view.render()
-                time.sleep(2)
-                self._view.hide_message()
+                self._display_temp_message(
+                    'Username not found. Please try again.')
             else:
                 raise future.exception()
         else:
@@ -267,23 +283,22 @@ class SubresourceState(BaseState):
     Attributes:
         SUBRESOURCE_LOADING_DELAY (float): The delay after which a selected
             subresource's data will be loaded.
-        _future_user_subresource (concurrent.futures.Future): A future from the
+        user_subresrc_future (concurrent.futures.Future): A future from the
             model that returns requested subresource data.
 
     """
 
     SUBRESOURCE_LOADING_DELAY = 1.0
 
-    def __init__(self, input_mapper, controller, state_factory, model, view,
+    def __init__(self, input_mapper, controller, state_factory, view, model,
         previous_state=None):
         """
         Constructor.
 
         """
-        super().__init__(input_mapper, controller, state_factory,
+        super().__init__(input_mapper, controller, state_factory, view,
             previous_state=previous_state)
 
-        self._future_user_subresource = None
         self._model = model
         self._nav_item_cycle_timestamp = None
         self._nav_item_cycled = False
@@ -304,19 +319,6 @@ class SubresourceState(BaseState):
             if time_elapsed >= self.SUBRESOURCE_LOADING_DELAY:
                 self._nav_item_cycle_timestamp = None
                 self._nav_item_cycled = False
-                self._view.show_loading_indicator()
-                # self._load_user_subresource(self._view.selected_nav_item)
-
-    def _check_future_user_subresource(self):
-        """
-        Check the status of the future associated with user subresrc loading.
-
-        Called in the interval tasks function.
-
-        """
-        if self._future_user_subresource \
-            and self._future_user_subresource.done():
-            self._set_current_user_subresource()
 
     def _cycle_nav_item(self):
         """
@@ -340,37 +342,8 @@ class SubresourceState(BaseState):
                 in the model and displayed in the view's nav region.
 
         """
-        self._future_user_subresource = self._model.get_user_subresource(
-            self._model.current_user.id, subresource)
-
-    def _set_current_user_subresource(self):
-        """
-        Consume the user subresource future and update model.
-
-        When user subresource data has been fetched from the model, set the
-        current user subresource data to be displayed in the view. The view
-        will update the content region.
-
-        Only called from a method that checks the existence and status of the
-        future. Not designed to be called separately.
-
-        """
-        pass
-
-    def start(self):
-        """
-        Perform main tasks immediately after state is loaded.
-
-        """
-        if not self._model.current_user:
-            raise RuntimeError('Invalid state. No user data loaded.')
-
-    def stop(self):
-        """
-        Perform tasks immediately before state is unloaded.
-
-        """
-        pass
+        return self._model.get_user_subresource(
+            str(self._model.current_user.id), subresource)
 
     def handle_action(self, action):
         """
@@ -391,7 +364,22 @@ class SubresourceState(BaseState):
 
         """
         self._check_nav_item_cycle_timer()
-        # self._check_future_user_subresource()
+        # self._check_user_subresrc_future()
+
+    def start(self):
+        """
+        Perform main tasks immediately after state is loaded.
+
+        """
+        if not self._model.current_user:
+            raise RuntimeError('Invalid state. No user data loaded.')
+
+    def stop(self):
+        """
+        Perform tasks immediately before state is unloaded.
+
+        """
+        pass
 
 
 class TracksLoadedState(SubresourceState):
@@ -400,15 +388,84 @@ class TracksLoadedState(SubresourceState):
 
     """
 
-    def __init__(self, input_mapper, controller, state_factory, model, view,
+    def __init__(self, input_mapper, controller, state_factory, view, model,
         previous_state=None):
         """
         Constructor
 
         """
-        super().__init__(input_mapper, controller, state_factory, model, view,
+        super().__init__(input_mapper, controller, state_factory, view, model,
         previous_state=previous_state)
 
+        self._tracks_future = None
+
+    @property
+    def _tracks_loading_done(self):
+        """
+        Get the status of the internal tracks future object.
+
+        Returns:
+            bool: True if future is present and done, false otherwise.
+
+        """
+        return self._tracks_future and self._tracks_future.done()
+
+    def _process_tracks_future_results(self):
+        """
+        Performs operations on the tracks data for display.
+
+        If an exception was raised in the data retrieval, display a message to
+        the user.
+
+        """
+        self._view.hide_loading_indicator()
+        future = self._tracks_future
+        if future.exception():
+            tracks_loading_failed = isinstance(
+                future.exception(), self._model.HTTP_ERROR)
+            if tracks_loading_failed:
+                # Manual rendering must be performed since this function will be
+                # blocking this thread's main loop that contains the interval
+                # render call.
+                self._display_temp_message('Tracks data could not be loaded.')
+            else:
+                raise future.exception()
+        else:
+            tracks_data = future.result()
+            self._model.set_current_user_subresource(
+                self._model.USER_SUBRESRC_01_TRACKS, tracks_data)
+
+            import curses
+            curses.endwin()
+            import pdb
+            pdb.set_trace()
+
+    def handle_action(self, action):
+        """
+        Override parent.
+
+        """
+        if self._tracks_loading_done:
+            super().handle_action(action)
+
+    def run_interval_tasks(self):
+        """
+        Override parent.
+
+        """
+        super().run_interval_tasks()
+        if self._tracks_loading_done:
+            self._process_tracks_future_results()
+
+    def start(self):
+        """
+        Override parent.
+
+        """
+        super().start()
+        self._view.show_loading_indicator()
+        self._tracks_future = self._load_user_subresource(
+            self._model.USER_SUBRESRC_01_TRACKS)
 
 
 class StateFactory:
@@ -417,7 +474,7 @@ class StateFactory:
 
     """
 
-    def __init__(self, input_mapper, model, view):
+    def __init__(self, input_mapper, view, model):
         """
         Constructor.
 
@@ -458,8 +515,8 @@ class StateFactory:
             self._input_mapper,
             context,
             self,
-            self._model,
             self._view,
+            self._model,
             previous_state=previous_state)
 
     def create_subresource_state(self, subresource, context,
@@ -486,6 +543,6 @@ class StateFactory:
             self._input_mapper,
             context,
             self,
-            self._model,
             self._view,
+            self._model,
             previous_state=previous_state)

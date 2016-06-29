@@ -49,8 +49,7 @@ class Model:
     USER_SUBRESRC_04_FOLLOWINGS = 'followings'
     USER_SUBRESRC_05_FOLLOWERS = 'followers'
 
-    def __init__(self, soundcloud_client, signal_current_user,
-        signal_current_subresource):
+    def __init__(self, soundcloud_client, signal_current_user):
         """
         Constructor.
 
@@ -64,7 +63,6 @@ class Model:
         self._soundcloud_client = soundcloud_client
 
         self.avail_user_subresources = []
-        self.signal_change_current_subresource = signal_current_subresource
         self.signal_change_current_user = signal_current_user
 
         self._init_avail_user_subresources()
@@ -158,9 +156,14 @@ class Model:
         self._soundcloud_client.run_interval_tasks()
 
     def set_current_user_subresource(self, name, data):
+        """
+        Set the current user subresource.
+
+        Both name and datamust be synchronized so this setter method is used.
+
+        """
         self._current_user_subresource_data = data
         self._current_user_subresource_name = name
-        self.signal_change_current_subresource.emit()
 
 
 class SoundcloudWrapper:
