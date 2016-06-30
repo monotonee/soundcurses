@@ -19,6 +19,7 @@ probably be implemented instead.
 """
 
 import abc
+import datetime
 import time
 
 class BaseState(metaclass=abc.ABCMeta):
@@ -424,9 +425,6 @@ class TracksLoadedState(SubresourceState):
             tracks_loading_failed = isinstance(
                 future.exception(), self._model.HTTP_ERROR)
             if tracks_loading_failed:
-                # Manual rendering must be performed since this function will be
-                # blocking this thread's main loop that contains the interval
-                # render call.
                 self._display_temp_message('Tracks data could not be loaded.')
             else:
                 raise future.exception()
@@ -434,11 +432,16 @@ class TracksLoadedState(SubresourceState):
             tracks_data = future.result()
             self._model.set_current_user_subresource(
                 self._model.USER_SUBRESRC_01_TRACKS, tracks_data)
-
-            import curses
-            curses.endwin()
-            import pdb
-            pdb.set_trace()
+            if tracks_data:
+                list_item_number = 0
+                content_lines = []
+                for track in tracks_data:
+                    content_lines.append(
+                        '0' + str(list_item_number) + '. '
+                        + track.title + ' '
+                        + str(datetime.timedelta(milliseconds=track.duration)))
+                    list_item_number += 1
+                self._view.current_content_lines = content_lines
 
     def handle_action(self, action):
         """

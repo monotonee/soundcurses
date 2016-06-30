@@ -178,8 +178,8 @@ class SoundcloudWrapper:
 
     Attributes:
         _cached_usernames (dict): A mapping of usernames to user IDs.
-        _cached_users (dict): Map of user IDs to the respective user data. Data is
-            contained primarily in soundcloud.Resource objects.
+        _cached_users (dict): Map of user IDs to the respective user data. Data
+            is contained primarily in soundcloud.Resource objects.
 
     """
 
@@ -221,7 +221,7 @@ class SoundcloudWrapper:
             if not future.exception():
                 user = future.result()
                 self._cached_usernames[user.username] = user.id
-                self._cached_users[user.id] = user
+                self._cached_users[str(user.id)] = user
 
         return cache_completed
 
@@ -267,9 +267,9 @@ class SoundcloudWrapper:
 
         """
         while self._cache_queue:
-            cache_completed = self._cache_queue[-1]()
+            cache_completed = self._cache_queue[0]()
             if cache_completed:
-                self._cache_queue.pop()
+                self._cache_queue.popleft()
             else:
                 break
 
@@ -331,13 +331,11 @@ class SoundcloudWrapper:
                     self._soundcloud_client.get,
                     '/resolve',
                     url=self._construct_permalink_url('/' + str(username)))
-                self._cache_queue.append(
-                    functools.partial(self._cache_user, future))
             else:
                 future = self._thread_executor.submit(
                     self._soundcloud_client.get,
                     '/users/' + user_id)
-                self._cache_queue.append(
+            self._cache_queue.append(
                     functools.partial(self._cache_user, future))
 
         return future

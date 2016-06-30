@@ -219,7 +219,7 @@ class CursesPad(CursesWindow):
     """
 
     def __init__(self, pad, screen, signal_layer_change,
-        pad_origin, clipping_box, render_layer=None):
+        visible_origin, clipping_box, render_layer=None):
         """
         Constructor.
 
@@ -229,15 +229,23 @@ class CursesPad(CursesWindow):
 
         Args:
             pad (curses.pad): A pad data structure from the curses library.
-            pad_origin (tuple): A tuple of int coords (y, x) of pad origin.
+            visible_origin (tuple): A tuple of int coords (y, x). This
+                coordinate is the coordinate within the pad that will be placed
+                directly under the clipping box origin (upper left) when pad is
+                rendered. Corresponds to the curses.pad.refresh method's
+                "pminrow" and "pmincol" parameters.
             clipping_box (BoxCoords): A Box object defining the rendering area
                 of pad.
+
+            See:
+                https://docs.python.org/3.5/library/curses.html#curses.newpad
+                http://linux.die.net/man/3/newpad
 
         """
         super().__init__(pad, screen, signal_layer_change,
             render_layer=render_layer)
 
-        self._pad_origin = pad_origin
+        self._visible_origin = visible_origin
         self._clipping_box = clipping_box
 
     def refresh(self):
@@ -249,7 +257,7 @@ class CursesPad(CursesWindow):
 
         """
         self._window.refresh(
-            *self._pad_origin
+            *self._visible_origin,
             *self._clipping_box.origin,
             *self._clipping_box.bottom_right)
 
@@ -262,7 +270,7 @@ class CursesPad(CursesWindow):
 
         """
         self._window.noutrefresh(
-            *self._pad_origin
+            *self._visible_origin,
             *self._clipping_box.origin,
             *self._clipping_box.bottom_right)
 
@@ -293,7 +301,7 @@ class CursesWindowFactory:
         """
         return self._signalslot.Signal(args=self._signal_layer_change_args)
 
-    def create_box_coords(self, origin, lines, cols):
+    def create_box_coords(self, lines, cols, origin):
         """
         Create a new box data object.
 
@@ -306,23 +314,33 @@ class CursesWindowFactory:
         """
         return BoxCoords(origin, lines, cols)
 
-    def create_pad(self, lines, cols, pad_origin, clipping_box):
+    def create_pad(self, lines, cols, visible_origin, clipping_box,
+        render_layer=None):
         """
         Create a curses pad wrapper object.
 
         Args:
             lines (int): The number of lines pad should ecompass.
             cols (int): The number of cols pad should encompass.
-            pad_origin (tuple): A tuple of int coords (y, x) of pad origin.
-            clipping_box (Box): A Box object defining the rendering area of pad.
+            visible_origin (tuple): A tuple of int coords (y, x). This
+                coordinate is the coordinate within the pad that will be placed
+                directly under the clipping box origin (upper left) when pad is
+                rendered. Corresponds to the curses.pad.refresh method's
+                "pminrow" and "pmincol" parameters.
+            clipping_box (BoxCoords): A box object defining the rendering area
+                of pad.
+
+            See:
+                https://docs.python.org/3.5/library/curses.html#curses.newpad
 
         """
         return CursesPad(
             self._curses.newpad(lines, cols),
             self._screen,
             self._create_layer_change_signal(),
-            pad_origin,
-            clipping_box)
+            visible_origin,
+            clipping_box,
+            render_layer=render_layer)
 
     def create_window(self, lines, cols, y, x, render_layer=None):
         """

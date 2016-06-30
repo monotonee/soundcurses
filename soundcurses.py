@@ -55,7 +55,6 @@ def main(stdscr):
     soundcloud_client.HTTP_ERROR = requests.exceptions.HTTPError
 
     # Compose model.
-
     thread_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     soundcloud_wrapper = models.SoundcloudWrapper(
         soundcloud_client, thread_executor)
@@ -72,7 +71,7 @@ def main(stdscr):
     header_window = window_factory.create_window(
         1, curses_wrapper.COLS,
         y_coord_offset, 0,
-        curses_screen.RENDER_LAYER_REGIONS)
+        render_layer=curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(header_window)
     header_region = regions.HeaderRegion(header_window, curses_wrapper)
     y_coord_offset += header_window.lines
@@ -81,7 +80,7 @@ def main(stdscr):
     status_window = window_factory.create_window(
         3, curses_wrapper.COLS,
         y_coord_offset, 0,
-        curses_screen.RENDER_LAYER_REGIONS)
+        render_layer=curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(status_window)
     status_region = regions.StatusRegion(status_window, string_factory)
     y_coord_offset += status_window.lines
@@ -90,18 +89,30 @@ def main(stdscr):
     nav_window = window_factory.create_window(
         3, curses_wrapper.COLS,
         y_coord_offset, 0,
-        curses_screen.RENDER_LAYER_REGIONS)
+        render_layer=curses_screen.RENDER_LAYER_REGIONS)
     curses_screen.add_window(nav_window)
     nav_region = regions.NavRegion(nav_window, string_factory, model)
     y_coord_offset += nav_window.lines
 
     # Compose content region.
-    content_window = window_factory.create_window(
+    clipping_box = window_factory.create_box_coords(
+        curses_wrapper.LINES - y_coord_offset + 3, curses_wrapper.COLS,
+        (y_coord_offset, 0))
+    content_pad = window_factory.create_pad(
         curses_wrapper.LINES - y_coord_offset, curses_wrapper.COLS,
-        y_coord_offset, 0,
-        curses_screen.RENDER_LAYER_REGIONS)
-    curses_screen.add_window(content_window)
-    content_region = regions.ContentRegion(content_window, curses_wrapper)
+        (0, 0),
+        clipping_box,
+        render_layer=curses_screen.RENDER_LAYER_REGIONS)
+    curses_screen.add_window(content_pad)
+    content_region = regions.ContentRegion(
+        content_pad,
+        curses_wrapper,
+        curses_screen,
+        string_factory)
+
+    # curses_wrapper.endwin()
+    # import pdb
+    # pdb.set_trace()
 
     # Compose input source.
     input_source = user_input.InputSource(curses_wrapper, stdscr_window)

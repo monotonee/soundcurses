@@ -16,37 +16,144 @@ class ContentRegion:
     """
     A class that represents the content region.
 
-    The content region's primary function is to display user sub-resource
+    The content region's primary function is to display user subresource
     listings such as tracks or playlists.
+
+    This region creates uses curses.pad objects instead of curses.window objects
+    and creates the pads at runtime in order to properly display data.
+
+    Attributes:
+        _lines_list_raw (list): A list of native strings, each corresponding to
+            a line of content.
+        _lines_list_raw (list): A list of CursesString objects. The values of
+            the string objects are identical to those of the same list index in
+            _lines_list_raw.
 
     """
 
-    def __init__(self, window, curses):
+    _RESERVED_UNITS = 4
+
+    def __init__(self, pad, curses, screen, string_factory):
         """
         Constructor.
 
-        Raises:
-            ValueError: If window is too small for content.
+        Args:
+            pad (CursesPad): An initial pad. This provision of a pad ensures
+                valid object state, eliminates the need of this region to be
+                aware of screen layout, and provides a minimum region display
+                area.
+            curses (curses): The curses library interface.
+            screen (CursesScreen): The screen management object. Used to add and
+                remove new pads from the screen at runtime.
+            string_factory (CursesStringFactory): Used to create CursesStrings
+                at runtime.
 
         """
-        # Validate arguments.
-        if window.lines < 1:
-            raise ValueError('Window is to small for region content.')
-
         self._curses = curses
-        self._raw_lines_list = []
-        self._window = window
+        self._pad = pad
+        self._screen = screen
+        self._lines_list_raw = []
+        self._lines_list_strings = []
+        self._string_factory = string_factory
 
+        self._validate_pad()
         self._configure()
+
+    @property
+    def _avail_cols(self):
+        """
+        Get the number of columns available for writing.
+
+        Returns:
+            int: The number of columns.
+
+        """
+        return self._pad.cols - (self._RESERVED_UNITS)
+
+    @property
+    def _avail_lines(self):
+        """
+        Get the number of lines available for writing.
+
+        Returns:
+            int: The number of columns.
+
+        """
+        return self._pad.lines - (self._RESERVED_UNITS)
+
+    @property
+    def _avail_origin(self):
+        """
+        Return coordinates (y, x) of upper-left corner of writable area.
+
+        Origin begins one extra line down due to border.
+
+        Returns:
+            tuple: Tuple of ints (y, x)
+
+        """
+        return (
+            math.floor(self._RESERVED_UNITS / 2),
+            math.floor(self._RESERVED_UNITS / 2))
 
     def _configure(self):
         """
         Configure region/window properties.
 
         """
-        self._window.border(
+        self._pad.border(
             ' ', ' ', 0, ' ',
             self._curses.ACS_HLINE, self._curses.ACS_HLINE, ' ', ' ')
+
+    def _erase(self):
+        """
+        Erase the pad and clear the list of string objects.
+
+        """
+        self._pad.erase()
+        self._configure()
+        self._lines_list_strings = []
+
+    def _resize_pad(self):
+        """
+        Resize the internal pad to fit the number of content lines.
+
+        """
+        self._pad.resize(
+            len(self._lines_list_raw) + self._RESERVED_UNITS,
+            self._pad.cols)
+
+    def _write_lines(self):
+        """
+        Erase the pad and write the raw lines to the pad's lines.
+
+        Also empties the list of CursesString objects. If a line is too long to
+        fit into the pad, it is truncated.
+
+        """
+        self._erase()
+        y_offset, x_offset = self._avail_origin
+        for raw_line in self._lines_list_raw:
+            truncated_line = raw_line[0:self._avail_cols]
+            string_object = self._string_factory.create_string(
+                self._pad,
+                truncated_line,
+                y_offset,
+                x_offset)
+            string_object.write()
+            self._lines_list_strings.append(string_object)
+            y_offset += 1
+
+    def _validate_pad(self):
+        """
+        Validate the pad passed to an instance's constructor.
+
+        Raises:
+            ValueError: If pad is too small or otherwise unsuitable.
+
+        """
+        if self._avail_lines <= 1:
+            raise ValueError('Pad is too small for display of content.')
 
     @property
     def content_lines(self):
@@ -57,7 +164,7 @@ class ContentRegion:
             list: List of strings.
 
         """
-        return self._raw_lines_list
+        return self._lines_list_raw
 
     @content_lines.setter
     def content_lines(self, raw_lines_list):
@@ -65,10 +172,16 @@ class ContentRegion:
         Set the lines of content to be displayed.
 
         Args:
-            raw_lines_list (list): A list of strings.
+            raw_lines_list (list): A list of strings. Each string will be
+                rendered to its own line.
 
         """
-        self._raw_lines_list = raw_lines_list
+        self._lines_list_raw = raw_lines_list
+        self._erase()
+        if raw_lines_list:
+            if len(self._lines_list_raw) != self._avail_lines:
+                self._resize_pad()
+            self._write_lines()
 
 
 class HeaderRegion:
@@ -502,7 +615,7 @@ class ModalRegionFactory:
 
 class ModalRegionHelp(ModalRegionBase):
     """
-    A class that represents a modal message tht will display app key mappings.
+    A class that represents a modal message that will display app key mappings.
 
     Passed the input mapper object that maps raw input to application actions,
     this specialized modal window will display a formatted listing of the keys
