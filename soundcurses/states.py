@@ -261,6 +261,13 @@ class NoUsernameState(BaseState):
             and self._future_resolve_username.done():
             self._verify_username()
 
+    def start(self):
+        """
+        Override parent.
+
+        """
+        self._prompt_username()
+
 
 class SubresourceState(BaseState):
     """
@@ -356,6 +363,10 @@ class SubresourceState(BaseState):
         """
         if action == self._input_mapper.ACTION_QUIT:
             self._controller.stop_application()
+        elif action == self._input_mapper.ACTION_ENTER_USERNAME:
+            self._controller.set_state(
+                self._state_factory.create_no_username(
+                    self._controller, previous_state=self))
         elif action == self._input_mapper.ACTION_CYCLE_NAV:
             self._cycle_nav_item()
 

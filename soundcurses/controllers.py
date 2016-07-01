@@ -23,10 +23,8 @@ class MainController:
         self._current_state = None
         self._input_mapper = input_mapper
         self._model = model
+        self._state_factory = state_factory
         self._view = view
-
-        initial_state = state_factory.create_no_username(self)
-        self.set_state(initial_state)
 
     def _run_main_loop(self):
         """
@@ -65,6 +63,8 @@ class MainController:
         """
         self._application_is_running = True
         self._view.render()
+        self.set_state(
+            self._state_factory.create_no_username(self))
         self._run_main_loop()
 
     def stop_application(self):

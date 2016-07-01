@@ -50,6 +50,7 @@ class ContentRegion:
 
         """
         self._curses = curses
+        self._min_lines = pad.lines
         self._pad = pad
         self._screen = screen
         self._lines_list_raw = []
@@ -68,7 +69,7 @@ class ContentRegion:
             int: The number of columns.
 
         """
-        return self._pad.cols - (self._RESERVED_UNITS)
+        return self._pad.cols - self._RESERVED_UNITS
 
     @property
     def _avail_lines(self):
@@ -79,7 +80,7 @@ class ContentRegion:
             int: The number of columns.
 
         """
-        return self._pad.lines - (self._RESERVED_UNITS)
+        return self._pad.lines - self._RESERVED_UNITS
 
     @property
     def _avail_origin(self):
@@ -107,31 +108,38 @@ class ContentRegion:
 
     def _erase(self):
         """
-        Erase the pad and clear the list of string objects.
+        Erase the pad and clear the list of lines and string objects.
 
         """
         self._pad.erase()
         self._configure()
+        self._lines_list_raw = []
         self._lines_list_strings = []
 
     def _resize_pad(self):
         """
         Resize the internal pad to fit the number of content lines.
 
+        If lines of content are fewer than the minimum number of lines required
+        by the region, the pad will be resized to the minimum size instead.
+
         """
         self._pad.resize(
-            len(self._lines_list_raw) + self._RESERVED_UNITS,
+            max(
+                len(self._lines_list_raw) + self._RESERVED_UNITS,
+                self._min_lines),
             self._pad.cols)
 
     def _write_lines(self):
         """
-        Erase the pad and write the raw lines to the pad's lines.
+        Raw lines to the pad's lines.
 
-        Also empties the list of CursesString objects. If a line is too long to
-        fit into the pad, it is truncated.
+        Note that any current pad content is NOT erased. Empties the list of
+        CursesString objects and recreates it. If a line is too long to fit into
+        the pad, it is truncated.
 
         """
-        self._erase()
+        self._lines_list_strings = []
         y_offset, x_offset = self._avail_origin
         for raw_line in self._lines_list_raw:
             truncated_line = raw_line[0:self._avail_cols]
@@ -176,9 +184,9 @@ class ContentRegion:
                 rendered to its own line.
 
         """
-        self._lines_list_raw = raw_lines_list
         self._erase()
-        if raw_lines_list:
+        self._lines_list_raw = raw_lines_list
+        if self._lines_list_raw:
             if len(self._lines_list_raw) != self._avail_lines:
                 self._resize_pad()
             self._write_lines()

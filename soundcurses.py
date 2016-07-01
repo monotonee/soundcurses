@@ -96,7 +96,7 @@ def main(stdscr):
 
     # Compose content region.
     clipping_box = window_factory.create_box_coords(
-        curses_wrapper.LINES - y_coord_offset + 3, curses_wrapper.COLS,
+        curses_wrapper.LINES - y_coord_offset, curses_wrapper.COLS,
         (y_coord_offset, 0))
     content_pad = window_factory.create_pad(
         curses_wrapper.LINES - y_coord_offset, curses_wrapper.COLS,
