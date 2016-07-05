@@ -32,7 +32,7 @@ def main(stdscr):
 
     # Compose screen.
     curses_screen = screen.CursesScreen(
-        curses_wrapper, screen.WindowRenderQueue(), signalslot.Signal())
+        curses_wrapper, screen.RenderQueue(), signalslot.Signal())
 
     # Compose window factory.
     window_factory = windows.CursesWindowFactory(
