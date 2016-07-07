@@ -19,46 +19,44 @@ class ContentRegion:
     The content region's primary function is to display user subresource
     listings such as tracks or playlists.
 
-    This region creates uses curses.pad objects instead of curses.window objects
-    and creates the pads at runtime in order to properly display data.
+    A major feature of this region is its paging of content. Page data is stored
+    in a list of dictionaries. There is ALWAYS at least one page in the pages
+    list, although it may not produce any content when rendered. There is
+    ALWAYS one page of the pages list rendered at a given time. This simplifies
+    internal instance state and negates the necessity of constant state checks.
 
     Attributes:
-        _lines_list_raw (list): A list of native strings, each corresponding to
-            a line of content.
-        _lines_list_raw (list): A list of CursesString objects. The values of
-            the string objects are identical to those of the same list index in
-            _lines_list_raw.
+        _lines (dict): A dictionary of line strings, keyed by line identifiers
+            that are passed by and later needed by the controller.
 
     """
 
-    _RESERVED_UNITS = 4
+    RESERVED_UNITS = 4
 
-    def __init__(self, pad, curses, screen, string_factory):
+    def __init__(self, window, curses, string_factory):
         """
         Constructor.
 
         Args:
-            pad (CursesPad): An initial pad. This provision of a pad ensures
-                valid object state, eliminates the need of this region to be
-                aware of screen layout, and provides a minimum region display
-                area.
-            curses (curses): The curses library interface.
-            screen (CursesScreen): The screen management object. Used to add and
-                remove new pads from the screen at runtime.
+            window (CursesWindow): An initial window that defines the screen
+                area in which the content region is free to write.
+            curses (curses): The curses library interface. Necessary for
+                configuration of the window's styles such as borders.
             string_factory (CursesStringFactory): Used to create CursesStrings
                 at runtime.
 
         """
+        self._current_page_number = None
         self._curses = curses
-        self._min_lines = pad.lines
-        self._pad = pad
-        self._screen = screen
-        self._lines_list_raw = []
-        self._lines_list_strings = []
+        self._window = window
+        self._lines_list = []
+        self._pages = None
         self._string_factory = string_factory
 
-        self._validate_pad()
+        self._validate_window()
         self._configure()
+        self._init_pages()
+        self._render_current_page()
 
     @property
     def _avail_cols(self):
@@ -69,7 +67,7 @@ class ContentRegion:
             int: The number of columns.
 
         """
-        return self._pad.cols - self._RESERVED_UNITS
+        return self._window.cols - self.RESERVED_UNITS
 
     @property
     def _avail_lines(self):
@@ -80,116 +78,178 @@ class ContentRegion:
             int: The number of columns.
 
         """
-        return self._pad.lines - self._RESERVED_UNITS
+        return self._window.lines - self.RESERVED_UNITS
 
     @property
     def _avail_origin(self):
         """
         Return coordinates (y, x) of upper-left corner of writable area.
 
-        Origin begins one extra line down due to border.
-
         Returns:
             tuple: Tuple of ints (y, x)
 
         """
         return (
-            math.floor(self._RESERVED_UNITS / 2),
-            math.floor(self._RESERVED_UNITS / 2))
+            math.floor(self.RESERVED_UNITS / 2),
+            math.floor(self.RESERVED_UNITS / 2))
 
     def _configure(self):
         """
         Configure region/window properties.
 
         """
-        self._pad.border(
+        self._window.border(
             ' ', ' ', 0, ' ',
             self._curses.ACS_HLINE, self._curses.ACS_HLINE, ' ', ' ')
 
-    def _erase(self):
+    def _create_pages(self, lines_list):
         """
-        Erase the pad and clear the list of lines and string objects.
+        Create groups of lines out of the current list of lines.
 
-        """
-        self._pad.erase()
-        self._configure()
-        self._lines_list_raw = []
-        self._lines_list_strings = []
+        A page may be comprised of line counts less than or equal to the
+        available lines in the window. If a line is longer than the available
+        columns in the window, it is truncated.
 
-    def _resize_pad(self):
-        """
-        Resize the internal pad to fit the number of content lines.
+        Args:
+            lines_list (list): A list of line strings.
 
-        If lines of content are fewer than the minimum number of lines required
-        by the region, the pad will be resized to the minimum size instead.
-
-        """
-        self._pad.resize(
-            max(
-                len(self._lines_list_raw) + self._RESERVED_UNITS,
-                self._min_lines),
-            self._pad.cols)
-
-    def _write_lines(self):
-        """
-        Raw lines to the pad's lines.
-
-        Note that any current pad content is NOT erased. Empties the list of
-        CursesString objects and recreates it. If a line is too long to fit into
-        the pad, it is truncated.
+        Returns:
+            list: A list of "pages." Each page is a dictionary of line strings,
+                keyed by the index of the string's index in the original line
+                list passed to this method. If the lines_list is empty, a list
+                with a single page containing a single, empty line is returned.
 
         """
-        self._lines_list_strings = []
-        y_offset, x_offset = self._avail_origin
-        for raw_line in self._lines_list_raw:
-            truncated_line = raw_line[0:self._avail_cols]
-            string_object = self._string_factory.create_string(
-                self._pad,
-                truncated_line,
-                y_offset,
-                x_offset)
-            string_object.write()
-            self._lines_list_strings.append(string_object)
-            y_offset += 1
+        pages = []
+        if lines_list:
+            overlap_lines = math.floor(self._avail_lines * 0.08)
+            origin_coords = self._avail_origin
+            start_index = 0
+            end_index = self._avail_lines
 
-    def _validate_pad(self):
+            while True:
+                current_page_dict = collections.OrderedDict()
+                current_page_lines = lines_list[start_index:end_index]
+                current_line_number = start_index
+
+                i = 0
+                for line in current_page_lines:
+                    current_page_dict[current_line_number] = \
+                        self._string_factory.create_string(
+                            self._window,
+                            line[0:self._avail_cols],
+                            origin_coords[0] + i,
+                            origin_coords[1])
+                    current_line_number += 1
+                    i += 1
+                pages.append(current_page_dict)
+
+                lines_count = len(lines_list)
+                if end_index < lines_count:
+                    if lines_count - end_index - overlap_lines < \
+                        self._avail_lines:
+                        start_index = lines_count - self._avail_lines
+                        end_index = lines_count
+                    else:
+                        start_index = end_index - overlap_lines
+                        end_index += self._avail_lines - overlap_lines
+                else:
+                    break
+        else:
+            pages.append({0: self._string_factory.create_string(
+                self._window, '', *self._avail_origin)})
+
+        return pages
+
+    @property
+    def _current_page(self):
         """
-        Validate the pad passed to an instance's constructor.
+        Return the current page.
+
+        Returns:
+            dict: A current page dictionary.
+
+        """
+        return self._pages[self._current_page_number]
+
+    def _init_pages(self):
+        """
+        Initialize an empty page.
+
+        Called in constructor.
+
+        """
+        self._pages = self._create_pages([])
+        self._current_page_number = 0
+
+    def _render_current_page(self):
+        """
+        Erase the region and render the current page.
+
+        """
+        self.erase()
+        for line in self._current_page.values():
+            line.write()
+
+    def _validate_window(self):
+        """
+        Validate the window passed to the instance's constructor.
 
         Raises:
-            ValueError: If pad is too small or otherwise unsuitable.
+            ValueError: If window is too small or otherwise unsuitable.
 
         """
         if self._avail_lines <= 1:
-            raise ValueError('Pad is too small for display of content.')
+            raise ValueError('Window is too small for display of content.')
 
     @property
     def content_lines(self):
         """
-        Get the list of lines, in native string format, currently displayed.
+        Get the current list of line strings.
 
         Returns:
             list: List of strings.
 
         """
-        return self._lines_list_raw
+        return self._lines_list
 
     @content_lines.setter
-    def content_lines(self, raw_lines_list):
+    def content_lines(self, lines_list):
         """
         Set the lines of content to be displayed.
 
+        Region is immediately re-rendered to reflect new content. All lines are
+        organized into one or more pages of content and only one page can be
+        rendered at a given time.
+
         Args:
-            raw_lines_list (list): A list of strings. Each string will be
-                rendered to its own line.
+            lines_list (list): A list of line strings.
 
         """
-        self._erase()
-        self._lines_list_raw = raw_lines_list
-        if self._lines_list_raw:
-            if len(self._lines_list_raw) != self._avail_lines:
-                self._resize_pad()
-            self._write_lines()
+        self.erase()
+        self._lines_list = lines_list
+        self._pages = self._create_pages(self._lines_list)
+        self._current_page_number = 0
+        self._render_current_page()
+
+    def erase(self):
+        """
+        Erase the region but leave all internal line and page data intact.
+
+        """
+        self._window.erase()
+        self._configure()
+
+    @property
+    def page_numbers(self):
+        """
+        Get a list of page numbers.
+
+        Returns:
+            list: A list of integers, each representing a page number.
+
+        """
+        return list(range(0, len(self._pages)))
 
 
 class HeaderRegion:

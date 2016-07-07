@@ -95,24 +95,15 @@ def main(stdscr):
     y_coord_offset += nav_window.lines
 
     # Compose content region.
-    clipping_box = window_factory.create_box_coords(
+    content_window = window_factory.create_window(
         curses_wrapper.LINES - y_coord_offset, curses_wrapper.COLS,
-        (y_coord_offset, 0))
-    content_pad = window_factory.create_pad(
-        curses_wrapper.LINES - y_coord_offset, curses_wrapper.COLS,
-        (0, 0),
-        clipping_box,
+        y_coord_offset, 0,
         render_layer=curses_screen.RENDER_LAYER_REGIONS)
-    curses_screen.add_window(content_pad)
+    curses_screen.add_window(content_window)
     content_region = regions.ContentRegion(
-        content_pad,
+        content_window,
         curses_wrapper,
-        curses_screen,
         string_factory)
-
-    # curses_wrapper.endwin()
-    # import pdb
-    # pdb.set_trace()
 
     # Compose input source.
     input_source = user_input.InputSource(curses_wrapper, stdscr_window)
