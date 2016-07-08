@@ -240,10 +240,8 @@ class ContentRegion:
         empty list.
 
         """
-        # for line in self._current_page.values():
-            # line.erase()
-        self._window.erase()
-        self._configure()
+        for line in self._current_page.values():
+            line.erase()
 
     @property
     def page_numbers(self):

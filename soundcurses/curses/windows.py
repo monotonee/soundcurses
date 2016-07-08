@@ -641,5 +641,5 @@ class CursesStringFactory:
         Create a new CursesString instance.
 
         """
-        return CursesString(self._curses, window, string, y, x, attr)
+        return CursesString(self._curses, window, string, y, x, attr=attr)
 

@@ -9,148 +9,192 @@ from soundcurses.curses import (regions, windows)
 class ContentRegionTestCase(unittest.TestCase):
     def setUp(self):
         self._curses_mock = unittest.mock.NonCallableMock()
+        self._string_factory = windows.CursesStringFactory(self._curses_mock)
         self._window_mock = unittest.mock.NonCallableMock()
         self._window_mock.lines = 34
         self._window_mock.cols = 100
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_initialization(self, curses_string):
+    @staticmethod
+    def _use_string_pool(string_pool, window, string, y, x, attr=None):
+        """
+        Return CursesString from an iterator.
+
+        Designed to be used with functtools.partial to bind string_pool from a
+        local scope.
+
+        Args:
+            string_pool (iter): An iterator of CursesString objects.
+
+        Returns:
+            soundcurses.curses.windows.CursesString
+
+        """
+        string_object = next(string_pool)
+        string_object.move(y, x)
+        string_object.attr = attr
+        return string_object
+
+    def test_initialization(self):
         """
         Test creating the default empty lines set at construction.
 
         """
-        curses_string_mock = unittest.mock.Mock()
-        curses_string.return_value = curses_string_mock
-        string_factory = windows.CursesStringFactory(self._curses_mock)
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
+
         content_region = regions.ContentRegion(
-            self._window_mock, self._curses_mock, string_factory)
+            self._window_mock, self._curses_mock, string_factory_mock)
 
         self.assertEqual(len(content_region.page_numbers), 1)
-        self.assertEqual(curses_string.call_count, 1)
-        self.assertEqual(len(curses_string_mock.method_calls), 1)
-        self.assertEqual(curses_string_mock.method_calls[0][0], 'write')
+        self.assertEqual(string_factory_mock.create_string.call_count, 1)
+        self.assertTrue(string_pool[0].is_written)
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_set_empty_content(self, curses_string):
+    def test_set_empty_content(self):
         """
         Test setting no lines (an empty line set).
 
         """
-        curses_string_mock = unittest.mock.Mock()
-        curses_string.return_value = curses_string_mock
-        string_factory = windows.CursesStringFactory(self._curses_mock)
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0),
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
+
         content_region = regions.ContentRegion(
-            self._window_mock, self._curses_mock, string_factory)
+            self._window_mock, self._curses_mock, string_factory_mock)
         content_region.content_lines = []
 
         self.assertEqual(len(content_region.page_numbers), 1)
-        self.assertEqual(curses_string.call_count, 2)
-        self.assertEqual(len(curses_string_mock.method_calls), 2)
-        for call in curses_string_mock.method_calls:
-            self.assertEqual(call[0], 'write')
+        self.assertEqual(string_factory_mock.create_string.call_count, 2)
+        self.assertFalse(string_pool[0].is_written)
+        self.assertTrue(string_pool[1].is_written)
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_single_partial_page_content(self, curses_string):
+    def test_single_partial_page_content(self):
         """
         Test enough lines to partially fill only a single page.
 
         """
-        avail_strings = [unittest.mock.Mock()]
-        curses_string.side_effect = avail_strings
-        string_factory = windows.CursesStringFactory(self._curses_mock)
-        content_region = regions.ContentRegion(
-            self._window_mock, self._curses_mock, string_factory)
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
 
-        # Initialize list with single Mock to account for initialization line.
-        # I usually wouldn't use a private attribute but I feel an exception
-        # here is inconsequential. If the content_region attempts to create
-        # more than the allocated strings, a StopIteration exception is raised,
-        # failing the test.
+        content_region = regions.ContentRegion(
+            self._window_mock, self._curses_mock, string_factory_mock)
+
         lines_list = []
         for i in range(0, math.floor(content_region._avail_lines / 2)):
-            avail_strings.append(unittest.mock.Mock())
+            string_pool.append(
+                self._string_factory.create_string(
+                    self._window_mock, '', 0, 0))
             lines_list.append(str(i))
-
         content_region.content_lines = lines_list
 
         self.assertEqual(len(content_region.page_numbers), 1)
-        self.assertEqual(curses_string.call_count, len(avail_strings))
-        for curses_string_mock in avail_strings:
-            self.assertEqual(len(curses_string_mock.method_calls), 1)
-            self.assertEqual(curses_string_mock.method_calls[0][0], 'write')
+        self.assertEqual(
+            string_factory_mock.create_string.call_count, len(string_pool))
+        self.assertFalse(string_pool[0].is_written)
+        for i in range(1, len(string_pool)):
+            self.assertTrue(string_pool[i].is_written)
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_single_full_page_content(self, curses_string):
+    def test_single_full_page_content(self):
         """
         Test enough lines to fill only a single page.
 
         """
-        avail_strings = [unittest.mock.Mock()]
-        curses_string.side_effect = avail_strings
-        string_factory = windows.CursesStringFactory(self._curses_mock)
-        content_region = regions.ContentRegion(
-            self._window_mock, self._curses_mock, string_factory)
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
 
-        # Initialize list with single Mock to account for initialization line.
-        # I usually wouldn't use a private attribute but I feel an exception
-        # here is inconsequential. If the content_region attempts to create
-        # more than the allocated strings, a StopIteration exception is raised,
-        # failing the test.
+        content_region = regions.ContentRegion(
+            self._window_mock, self._curses_mock, string_factory_mock)
+
         lines_list = []
         for i in range(0, content_region._avail_lines):
-            avail_strings.append(unittest.mock.Mock())
+            string_pool.append(
+                self._string_factory.create_string(
+                    self._window_mock, '', 0, 0))
             lines_list.append(str(i))
-
         content_region.content_lines = lines_list
 
         self.assertEqual(len(content_region.page_numbers), 1)
-        self.assertEqual(curses_string.call_count, len(avail_strings))
-        for curses_string_mock in avail_strings:
-            self.assertEqual(len(curses_string_mock.method_calls), 1)
-            self.assertEqual(curses_string_mock.method_calls[0][0], 'write')
+        self.assertEqual(
+            string_factory_mock.create_string.call_count, len(string_pool))
+        self.assertFalse(string_pool[0].is_written)
+        for i in range(1, len(string_pool)):
+            self.assertTrue(string_pool[i].is_written)
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_double_partial_page_content(self, curses_string):
+    def test_double_partial_page_content(self):
         """
         Test enough lines to fill first page and part of second page.
 
         """
-        avail_strings = [unittest.mock.Mock()]
-        curses_string.side_effect = avail_strings
-        string_factory = windows.CursesStringFactory(self._curses_mock)
-        content_region = regions.ContentRegion(
-            self._window_mock, self._curses_mock, string_factory)
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
 
-        lines_count = math.floor(content_region._avail_lines * 1.5)
+        content_region = regions.ContentRegion(
+            self._window_mock, self._curses_mock, string_factory_mock)
+
+        page_count = 2
+        lines_count = math.floor(
+            content_region._avail_lines * (page_count - 0.5))
         lines_list = [str(i) for i in range(0, lines_count)]
 
-        first_page = [unittest.mock.Mock() \
-            for i in range(0, content_region._avail_lines)]
-        second_page = [unittest.mock.Mock() \
-            for i in range(0, content_region._avail_lines)]
+        pages = []
+        for page_number in range(0, page_count):
+            pages.append(
+                [self._string_factory.create_string(
+                    self._window_mock, '', 0, 0) \
+                    for i in range(0, content_region._avail_lines)])
+            string_pool.extend(pages[page_number])
 
-        avail_strings.extend(first_page)
-        avail_strings.extend(second_page)
         content_region.content_lines = lines_list
 
-        self.assertEqual(len(content_region.page_numbers), 2)
-        self.assertEqual(curses_string.call_count, len(avail_strings))
+        self.assertEqual(len(content_region.page_numbers), page_count)
+        self.assertEqual(
+            string_factory_mock.create_string.call_count, len(string_pool))
+        self.assertFalse(string_pool[0].is_written)
         for i in range(0, content_region._avail_lines):
-            self.assertEqual(len(first_page[i].method_calls), 1)
-            self.assertEqual(first_page[i].method_calls[0][0], 'write')
-            self.assertEqual(len(second_page[i].method_calls), 0)
+            self.assertTrue(pages[0][i].is_written)
+            for page_number in range(1, page_count):
+                self.assertFalse(pages[page_number][i].is_written)
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_multiple_page_content(self, curses_string):
+    def test_multiple_page_content(self):
         """
         Test enough lines to fill more than two pages.
 
         """
-        avail_strings = [unittest.mock.Mock()]
-        curses_string.side_effect = avail_strings
-        string_factory = windows.CursesStringFactory(self._curses_mock)
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
+
         content_region = regions.ContentRegion(
-            self._window_mock, self._curses_mock, string_factory)
+            self._window_mock, self._curses_mock, string_factory_mock)
 
         page_count = 4
         lines_count = math.floor(
@@ -160,49 +204,47 @@ class ContentRegionTestCase(unittest.TestCase):
         pages = []
         for page_number in range(0, page_count):
             pages.append(
-                [unittest.mock.Mock() \
+                [self._string_factory.create_string(
+                    self._window_mock, '', 0, 0) \
                     for i in range(0, content_region._avail_lines)])
-            avail_strings.extend(pages[page_number])
+            string_pool.extend(pages[page_number])
 
         content_region.content_lines = lines_list
 
         self.assertEqual(len(content_region.page_numbers), page_count)
-        self.assertEqual(curses_string.call_count, len(avail_strings))
+        self.assertEqual(
+            string_factory_mock.create_string.call_count, len(string_pool))
+        self.assertFalse(string_pool[0].is_written)
         for i in range(0, content_region._avail_lines):
-            self.assertEqual(len(pages[0][i].method_calls), 1)
-            self.assertEqual(pages[0][i].method_calls[0][0], 'write')
+            self.assertTrue(pages[0][i].is_written)
             for page_number in range(1, page_count):
-                self.assertEqual(len(pages[page_number][i].method_calls), 0)
+                self.assertFalse(pages[page_number][i].is_written)
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_highlighting_next_line(self, curses_string):
-        """
-        Test highlighting the line after current.
+    # def test_highlighting_next_line(self):
+        # """
+        # Test highlighting the line after current.
 
-        """
-        pass
+        # """
+        # pass
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_highlighting_previous_line(self, curses_string):
-        """
-        Test highlighting the line before current.
+    # def test_highlighting_previous_line(self):
+        # """
+        # Test highlighting the line before current.
 
-        """
-        pass
+        # """
+        # pass
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_page_down(self, curses_string):
-        """
-        Test loading next page of content.
+    # def test_page_down(self):
+        # """
+        # Test loading next page of content.
 
-        """
-        pass
+        # """
+        # pass
 
-    @unittest.mock.patch('soundcurses.curses.windows.CursesString')
-    def test_page_up(self, curses_string):
-        """
-        Test loading next page of content.
+    # def test_page_up(self):
+        # """
+        # Test loading next page of content.
 
-        """
-        pass
+        # """
+        # pass
 
