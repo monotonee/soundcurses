@@ -498,10 +498,22 @@ class CursesString:
         Overwrite string with blank chars.
 
         """
-        for coord_y, coord_x, line in self._string_lines:
-            empty_string = ''.ljust(len(line))
-            self._window.addstr(coord_y, coord_x, empty_string)
-        self._is_written = False
+        if self._is_written == True:
+            for coord_y, coord_x, line in self._string_lines:
+                empty_string = ''.ljust(len(line))
+                self._window.addstr(coord_y, coord_x, empty_string)
+            self._is_written = False
+
+    @property
+    def is_written(self):
+        """
+        Indicate whether or not the string is written to the window.
+
+        Returns:
+            bool: True if written, False otherwise.
+
+        """
+        return self._is_written
 
     @property
     def lines(self):

@@ -236,7 +236,12 @@ class ContentRegion:
         """
         Erase the region but leave all internal line and page data intact.
 
+        To wipe line and page data as well, set content_lines property to an
+        empty list.
+
         """
+        # for line in self._current_page.values():
+            # line.erase()
         self._window.erase()
         self._configure()
 
