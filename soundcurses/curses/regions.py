@@ -47,6 +47,7 @@ class ContentRegion:
 
         """
         self._current_page_number = None
+        self._current_line_number = None
         self._curses = curses
         self._window = window
         self._lines_list = []
@@ -56,7 +57,7 @@ class ContentRegion:
         self._validate_window()
         self._configure()
         self._init_pages()
-        self._render_current_page()
+        self._write_page_lines()
 
     @property
     def _avail_cols(self):
@@ -162,6 +163,17 @@ class ContentRegion:
         return pages
 
     @property
+    def _current_line(self):
+        """
+        Get the currently-selected line string object.
+
+        Returns:
+            CursesString
+
+        """
+        return self._current_page[self._current_line_number]
+
+    @property
     def _current_page(self):
         """
         Return the current page.
@@ -174,25 +186,44 @@ class ContentRegion:
 
     def _init_pages(self):
         """
-        Initialize an empty page.
+        Initialize an empty page and valid "empty" default instance state.
 
         Called in constructor.
 
         """
         self._pages = self._create_pages([])
         self._current_page_number = 0
+        self._current_line_number = 0
 
-    def _render_current_page(self):
+    def _set_current_line_number(self, line_number):
         """
-        Render the current page.
+        Select the line identified by the passed line number.
+
+        The line must be present in the current page. Line numbers correspond
+        to the index of the line in the raw self._lines_list.
+
+        May be converted to a public method in the future.
+
+        Args:
+            line_number (int): The number of the line to be selected.
+
+        Raises:
+            ValueError: If identifier does not correspond to any available line
+                in the current page.
 
         """
-        for line in self._current_page.values():
-            line.write()
+        if line_number not in self._current_page:
+            raise ValueError('Line "' + line_id + '" not in current page.')
+
+        self._current_line.style_normal()
+        self._current_line_number = line_number
+        self._current_line.style_reverse()
 
     def _set_current_page_number(self, page_number):
         """
         Set the current page and replace region contents with that of new page.
+
+        May be converted to a public method in the future.
 
         Args:
             page_number (int)
@@ -207,7 +238,7 @@ class ContentRegion:
 
         self.erase()
         self._current_page_number = page_number
-        self._render_current_page()
+        self._write_page_lines()
 
     def _validate_window(self):
         """
@@ -219,6 +250,14 @@ class ContentRegion:
         """
         if self._avail_lines <= 1:
             raise ValueError('Window is too small for display of content.')
+
+    def _write_page_lines(self):
+        """
+        Render the current page.
+
+        """
+        for line in self._current_page.values():
+            line.write()
 
     @property
     def content_lines(self):
@@ -240,6 +279,10 @@ class ContentRegion:
         organized into one or more pages of content and only one page can be
         rendered at a given time.
 
+        Note that there are two calls to self.erase(): one in this method and a
+        second in self._set_current_page_number(). This doesn't seem to cause
+        any performance issues but still should be revisited later.
+
         Args:
             lines_list (list): A list of line strings.
 
@@ -247,8 +290,29 @@ class ContentRegion:
         self.erase()
         self._lines_list = lines_list
         self._pages = self._create_pages(self._lines_list)
-        self._current_page_number = 0
-        self._render_current_page()
+        self._set_current_page_number(0)
+
+    @property
+    def current_line_number(self):
+        """
+        Get the index number of the currently-selected line.
+
+        Returns:
+            int
+
+        """
+        return self._current_line_number
+
+    @property
+    def current_page_number(self):
+        """
+        Get the current page number.
+
+        Returns:
+            int
+
+        """
+        return self._current_page_number
 
     def erase(self):
         """
@@ -260,6 +324,48 @@ class ContentRegion:
         """
         for line in self._current_page.values():
             line.erase()
+
+    def line_next(self):
+        """
+        Select the next line of content.
+
+        If the currently-selected line is the last in the page, then this method
+        will automatically display the first page that contains the desired
+        line. NOOP if no further pages or line number is not present in any
+        following pages.
+
+        """
+        next_line_number = self._current_line_number + 1
+        next_page_number = self._current_page_number + 1
+        if next_line_number in self._current_page.keys():
+            self._set_current_line_number(next_line_number)
+        elif next_page_number < self.page_count:
+            for page_number in range(next_page_number, self.page_count):
+                if next_line_number in self._pages[page_number].keys():
+                    self._set_current_page_number(page_number)
+                    self._set_current_line_number(next_line_number)
+                    break
+
+    def line_previous(self):
+        """
+        Select the previous line of content.
+
+        If the currently-selected line is first in the page, then this method
+        will automatically display the first page that contains the desired
+        line. NOOP if no other pages or line number is not present in any
+        previous pages.
+
+        """
+        prev_line_number = self._current_line_number - 1
+        prev_page_number = self._current_page_number - 1
+        if prev_line_number in self._current_page.keys():
+            self._set_current_line_number(prev_line_number)
+        elif prev_page_number >= 0:
+            for page_number in reversed(range(0, self.current_page_number)):
+                if prev_line_number in self._pages[page_number].keys():
+                    self._set_current_page_number(page_number)
+                    self._set_current_line_number(prev_line_number)
+                    break
 
     @property
     def page_count(self):

@@ -215,19 +215,132 @@ class ContentRegionTestCase(unittest.TestCase):
             for page_number in range(1, page_count):
                 self.assertFalse(pages[page_number][i].is_written)
 
-    # def test_highlighting_next_line(self):
-        # """
-        # Test highlighting the line after current.
+    def test_line_selection_single_page(self):
+        """
+        Test next line selection on a single page.
 
-        # """
-        # pass
+        """
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
+        content_region = regions.ContentRegion(
+            self._window_mock, self._curses_mock, string_factory_mock)
 
-    # def test_highlighting_previous_line(self):
-        # """
-        # Test highlighting the line before current.
+        page_count = 1
+        lines_count = math.floor(
+            content_region._avail_lines * (page_count - 0.5))
+        lines_list = [str(i) for i in range(0, lines_count)]
 
-        # """
-        # pass
+        pages = []
+        for page_number in range(0, page_count):
+            pages.append(
+                [self._string_factory.create_string(
+                    self._window_mock, '', 0, 0) \
+                    for i in range(0, lines_count)])
+            string_pool.extend(pages[page_number])
+
+        self.assertEqual(content_region.current_line_number, 0)
+
+        content_region.content_lines = lines_list
+
+        self.assertEqual(content_region.page_count, page_count)
+
+        # Test next line
+        self.assertEqual(content_region.current_line_number, 0)
+        self.assertEqual(content_region.current_page_number, 0)
+        for i in range(1, len(lines_list)):
+            content_region.line_next()
+            self.assertEqual(content_region.current_line_number, i)
+            self.assertEqual(content_region.current_page_number, 0)
+        content_region.line_next()
+        self.assertEqual(content_region.current_line_number, len(pages[0]) - 1)
+        self.assertEqual(content_region.current_page_number, 0)
+
+        # Test previous line
+        for i in reversed(range(0, len(pages[0]) - 1)):
+            content_region.line_previous()
+            self.assertEqual(content_region.current_line_number, i)
+            self.assertEqual(content_region.current_page_number, 0)
+        content_region.line_previous()
+        self.assertEqual(content_region.current_line_number, 0)
+        self.assertEqual(content_region.current_page_number, 0)
+
+    def test_line_selection_multi_page(self):
+        """
+        Test next line selection and automatic page iteration on multiple pages.
+
+        """
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
+        content_region = regions.ContentRegion(
+            self._window_mock, self._curses_mock, string_factory_mock)
+
+        page_count = 2
+        lines_count = math.floor(
+            content_region._avail_lines * (page_count - 0.5))
+        lines_list = [str(i) for i in range(0, lines_count)]
+
+        pages = []
+        for page_number in range(0, page_count):
+            pages.append(
+                [self._string_factory.create_string(
+                    self._window_mock, '', 0, 0) \
+                    for i in range(0, content_region._avail_lines)])
+            string_pool.extend(pages[page_number])
+
+        self.assertEqual(content_region.current_line_number, 0)
+
+        content_region.content_lines = lines_list
+
+        self.assertEqual(content_region.page_count, page_count)
+
+        # Test next line page 1
+        self.assertEqual(content_region.current_line_number, 0)
+        self.assertEqual(content_region.current_page_number, 0)
+        for i in range(1, len(pages[0])):
+            content_region.line_next()
+            self.assertEqual(content_region.current_line_number, i)
+            self.assertEqual(content_region.current_page_number, 0)
+
+        # Test next line page 2
+        content_region.line_next()
+        self.assertEqual(content_region.current_line_number, i + 1)
+        self.assertEqual(content_region.current_page_number, 1)
+        for j in range(i + 2, len(lines_list)):
+            content_region.line_next()
+            self.assertEqual(content_region.current_line_number, j)
+            self.assertEqual(content_region.current_page_number, 1)
+        content_region.line_next()
+        self.assertEqual(
+            content_region.current_line_number, len(lines_list) - 1)
+        self.assertEqual(content_region.current_page_number, 1)
+
+        # Test previous line page 2
+        start_index = len(lines_list) - content_region._avail_lines
+        # import pdb
+        # pdb.set_trace()
+        for i in reversed(range(start_index, len(lines_list) - 1)):
+            content_region.line_previous()
+            self.assertEqual(content_region.current_line_number, i)
+            self.assertEqual(content_region.current_page_number, 1)
+
+        # Test previous line page 1
+        for j in reversed(range(0, i)):
+            content_region.line_previous()
+            self.assertEqual(content_region.current_line_number, j)
+            self.assertEqual(content_region.current_page_number, 0)
+        content_region.line_previous()
+        self.assertEqual(content_region.current_line_number, 0)
+        self.assertEqual(content_region.current_page_number, 0)
 
     def test_paging(self):
         """
