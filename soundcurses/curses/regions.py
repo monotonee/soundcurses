@@ -184,12 +184,30 @@ class ContentRegion:
 
     def _render_current_page(self):
         """
-        Erase the region and render the current page.
+        Render the current page.
 
         """
-        self.erase()
         for line in self._current_page.values():
             line.write()
+
+    def _set_current_page_number(self, page_number):
+        """
+        Set the current page and replace region contents with that of new page.
+
+        Args:
+            page_number (int)
+
+        Raises:
+            ValueError: If page number does not exist in current set of pages.
+
+        """
+        if page_number < 0 or page_number >= self.page_count:
+            raise ValueError(
+                'Page number "' + page_number + '" does not exist.')
+
+        self.erase()
+        self._current_page_number = page_number
+        self._render_current_page()
 
     def _validate_window(self):
         """
@@ -244,15 +262,39 @@ class ContentRegion:
             line.erase()
 
     @property
-    def page_numbers(self):
+    def page_count(self):
         """
-        Get a list of page numbers.
+        Get the number of current pages.
 
         Returns:
-            list: A list of integers, each representing a page number.
+            int
 
         """
-        return list(range(0, len(self._pages)))
+        return len(self._pages)
+
+    def page_next(self):
+        """
+        Replace region content with that of next page, if it exists.
+
+        NOOP if next page oes not exist.
+
+        """
+        try:
+            self._set_current_page_number(self._current_page_number + 1)
+        except ValueError:
+            pass
+
+    def page_previous(self):
+        """
+        Replace region content with that of previous page, if it exists.
+
+        NOOP if previous page oes not exist.
+
+        """
+        try:
+            self._set_current_page_number(self._current_page_number - 1)
+        except ValueError:
+            pass
 
 
 class HeaderRegion:

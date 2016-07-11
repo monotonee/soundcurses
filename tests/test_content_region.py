@@ -46,11 +46,10 @@ class ContentRegionTestCase(unittest.TestCase):
             spec=windows.CursesStringFactory)
         string_factory_mock.create_string.side_effect = functools.partial(
             self._use_string_pool, iter(string_pool))
-
         content_region = regions.ContentRegion(
             self._window_mock, self._curses_mock, string_factory_mock)
 
-        self.assertEqual(len(content_region.page_numbers), 1)
+        self.assertEqual(content_region.page_count, 1)
         self.assertEqual(string_factory_mock.create_string.call_count, 1)
         self.assertTrue(string_pool[0].is_written)
 
@@ -68,12 +67,12 @@ class ContentRegionTestCase(unittest.TestCase):
             spec=windows.CursesStringFactory)
         string_factory_mock.create_string.side_effect = functools.partial(
             self._use_string_pool, iter(string_pool))
-
         content_region = regions.ContentRegion(
             self._window_mock, self._curses_mock, string_factory_mock)
+
         content_region.content_lines = []
 
-        self.assertEqual(len(content_region.page_numbers), 1)
+        self.assertEqual(content_region.page_count, 1)
         self.assertEqual(string_factory_mock.create_string.call_count, 2)
         self.assertFalse(string_pool[0].is_written)
         self.assertTrue(string_pool[1].is_written)
@@ -90,7 +89,6 @@ class ContentRegionTestCase(unittest.TestCase):
             spec=windows.CursesStringFactory)
         string_factory_mock.create_string.side_effect = functools.partial(
             self._use_string_pool, iter(string_pool))
-
         content_region = regions.ContentRegion(
             self._window_mock, self._curses_mock, string_factory_mock)
 
@@ -102,7 +100,7 @@ class ContentRegionTestCase(unittest.TestCase):
             lines_list.append(str(i))
         content_region.content_lines = lines_list
 
-        self.assertEqual(len(content_region.page_numbers), 1)
+        self.assertEqual(content_region.page_count, 1)
         self.assertEqual(
             string_factory_mock.create_string.call_count, len(string_pool))
         self.assertFalse(string_pool[0].is_written)
@@ -121,7 +119,6 @@ class ContentRegionTestCase(unittest.TestCase):
             spec=windows.CursesStringFactory)
         string_factory_mock.create_string.side_effect = functools.partial(
             self._use_string_pool, iter(string_pool))
-
         content_region = regions.ContentRegion(
             self._window_mock, self._curses_mock, string_factory_mock)
 
@@ -133,7 +130,7 @@ class ContentRegionTestCase(unittest.TestCase):
             lines_list.append(str(i))
         content_region.content_lines = lines_list
 
-        self.assertEqual(len(content_region.page_numbers), 1)
+        self.assertEqual(content_region.page_count, 1)
         self.assertEqual(
             string_factory_mock.create_string.call_count, len(string_pool))
         self.assertFalse(string_pool[0].is_written)
@@ -152,7 +149,6 @@ class ContentRegionTestCase(unittest.TestCase):
             spec=windows.CursesStringFactory)
         string_factory_mock.create_string.side_effect = functools.partial(
             self._use_string_pool, iter(string_pool))
-
         content_region = regions.ContentRegion(
             self._window_mock, self._curses_mock, string_factory_mock)
 
@@ -171,7 +167,7 @@ class ContentRegionTestCase(unittest.TestCase):
 
         content_region.content_lines = lines_list
 
-        self.assertEqual(len(content_region.page_numbers), page_count)
+        self.assertEqual(content_region.page_count, page_count)
         self.assertEqual(
             string_factory_mock.create_string.call_count, len(string_pool))
         self.assertFalse(string_pool[0].is_written)
@@ -192,7 +188,6 @@ class ContentRegionTestCase(unittest.TestCase):
             spec=windows.CursesStringFactory)
         string_factory_mock.create_string.side_effect = functools.partial(
             self._use_string_pool, iter(string_pool))
-
         content_region = regions.ContentRegion(
             self._window_mock, self._curses_mock, string_factory_mock)
 
@@ -211,7 +206,7 @@ class ContentRegionTestCase(unittest.TestCase):
 
         content_region.content_lines = lines_list
 
-        self.assertEqual(len(content_region.page_numbers), page_count)
+        self.assertEqual(content_region.page_count, page_count)
         self.assertEqual(
             string_factory_mock.create_string.call_count, len(string_pool))
         self.assertFalse(string_pool[0].is_written)
@@ -234,17 +229,49 @@ class ContentRegionTestCase(unittest.TestCase):
         # """
         # pass
 
-    # def test_page_down(self):
-        # """
-        # Test loading next page of content.
+    def test_paging(self):
+        """
+        Test loading next page of content.
 
-        # """
-        # pass
+        """
+        string_pool = [
+            self._string_factory.create_string(
+                self._window_mock, '', 0, 0)]
+        string_factory_mock = unittest.mock.NonCallableMock(
+            spec=windows.CursesStringFactory)
+        string_factory_mock.create_string.side_effect = functools.partial(
+            self._use_string_pool, iter(string_pool))
+        content_region = regions.ContentRegion(
+            self._window_mock, self._curses_mock, string_factory_mock)
 
-    # def test_page_up(self):
-        # """
-        # Test loading next page of content.
+        page_count = 2
+        lines_count = math.floor(
+            content_region._avail_lines * (page_count - 0.5))
+        lines_list = [str(i) for i in range(0, lines_count)]
 
-        # """
-        # pass
+        pages = []
+        for page_number in range(0, page_count):
+            pages.append(
+                [self._string_factory.create_string(
+                    self._window_mock, '', 0, 0) \
+                    for i in range(0, content_region._avail_lines)])
+            string_pool.extend(pages[page_number])
 
+        content_region.content_lines = lines_list
+
+        self.assertEqual(content_region.page_count, page_count)
+        self.assertFalse(string_pool[0].is_written)
+        for line in pages[0]:
+            self.assertTrue(line.is_written)
+        for line in pages[1]:
+            self.assertFalse(line.is_written)
+        content_region.page_next()
+        for line in pages[0]:
+            self.assertFalse(line.is_written)
+        for line in pages[1]:
+            self.assertTrue(line.is_written)
+        content_region.page_previous()
+        for line in pages[0]:
+            self.assertTrue(line.is_written)
+        for line in pages[1]:
+            self.assertFalse(line.is_written)
