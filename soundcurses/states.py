@@ -410,9 +410,10 @@ class TracksLoadedState(SubresourceState):
         previous_state=previous_state)
 
         self._tracks_future = None
+        self._tracks_loaded = False
 
     @property
-    def _tracks_loading_done(self):
+    def _tracks_future_ready(self):
         """
         Get the status of the internal tracks future object.
 
@@ -443,24 +444,36 @@ class TracksLoadedState(SubresourceState):
             tracks_data = future.result()
             self._model.set_current_user_subresource(
                 self._model.USER_SUBRESRC_01_TRACKS, tracks_data)
+            content_lines = []
             if tracks_data:
                 list_item_number = 0
-                content_lines = []
                 for track in tracks_data:
+                    track_number = str(list_item_number).rjust(2, '0')
                     content_lines.append(
-                        '0' + str(list_item_number) + '. '
+                        track_number + '. '
                         + track.title + ' '
                         + str(datetime.timedelta(milliseconds=track.duration)))
                     list_item_number += 1
-                self._view.current_content_lines = content_lines
+            self._view.content_lines = content_lines
+        self._tracks_future = None
+        self._tracks_loaded = True
 
     def handle_action(self, action):
         """
         Override parent.
 
         """
-        if self._tracks_loading_done:
-            super().handle_action(action)
+        if self._tracks_loaded:
+            if action == self._input_mapper.ACTION_CONTENT_LINE_NEXT:
+                self._view.content_line_next()
+            elif action == self._input_mapper.ACTION_CONTENT_LINE_PREV:
+                self._view.content_line_previous()
+            elif action == self._input_mapper.ACTION_CONTENT_PAGE_NEXT:
+                self._view.content_page_next()
+            elif action == self._input_mapper.ACTION_CONTENT_PAGE_PREV:
+                self._view.content_page_previous()
+            else:
+                super().handle_action(action)
 
     def run_interval_tasks(self):
         """
@@ -468,7 +481,7 @@ class TracksLoadedState(SubresourceState):
 
         """
         super().run_interval_tasks()
-        if self._tracks_loading_done:
+        if self._tracks_future_ready:
             self._process_tracks_future_results()
 
     def start(self):

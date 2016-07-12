@@ -24,6 +24,10 @@ class UserInputMapper:
     """
 
     ACTION_CLOSE = 'Close window'
+    ACTION_CONTENT_LINE_NEXT = 'Next content line'
+    ACTION_CONTENT_LINE_PREV = 'Previous content line'
+    ACTION_CONTENT_PAGE_NEXT = 'Next content page'
+    ACTION_CONTENT_PAGE_PREV = 'Previous content page'
     ACTION_CYCLE_NAV = 'Next nav item'
     ACTION_ENTER_USERNAME = 'Enter username'
     ACTION_HELP = 'Help'
@@ -49,6 +53,10 @@ class UserInputMapper:
         self._keymap['q'] = self.ACTION_QUIT
         self._keymap['u'] = self.ACTION_ENTER_USERNAME
         self._keymap['KEY_F(1)'] = self.ACTION_HELP
+        self._keymap['KEY_DOWN'] = self.ACTION_CONTENT_LINE_NEXT
+        self._keymap['KEY_NPAGE'] = self.ACTION_CONTENT_PAGE_NEXT
+        self._keymap['KEY_PPAGE'] = self.ACTION_CONTENT_PAGE_PREV
+        self._keymap['KEY_UP'] = self.ACTION_CONTENT_LINE_PREV
         self._keymap['\t'] = self.ACTION_CYCLE_NAV
 
     @property

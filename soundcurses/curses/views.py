@@ -51,7 +51,7 @@ class MainView:
         self._region_status.username = self._model.current_user.username
 
     @property
-    def current_content_lines(self):
+    def content_lines(self):
         """
         Get the lines currently displayed in the content region.
 
@@ -61,8 +61,8 @@ class MainView:
         """
         return self._region_content.content_lines
 
-    @current_content_lines.setter
-    def current_content_lines(self, lines_list):
+    @content_lines.setter
+    def content_lines(self, lines_list):
         """
         Set the lines of content to be displayed in the content region.
 
@@ -71,6 +71,34 @@ class MainView:
 
         """
         self._region_content.content_lines = lines_list
+
+    def content_line_next(self):
+        """
+        Select the next line of content.
+
+        """
+        self._region_content.line_next()
+
+    def content_line_previous(self):
+        """
+        Select the previous line of content.
+
+        """
+        self._region_content.line_previous()
+
+    def content_page_next(self):
+        """
+        Select the next line of content.
+
+        """
+        self._region_content.page_next()
+
+    def content_page_previous(self):
+        """
+        Select the next line of content.
+
+        """
+        self._region_content.page_previous()
 
     def destroy(self):
         """

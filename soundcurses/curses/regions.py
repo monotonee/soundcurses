@@ -213,7 +213,8 @@ class ContentRegion:
 
         """
         if line_number not in self._current_page:
-            raise ValueError('Line "' + line_id + '" not in current page.')
+            raise ValueError(
+                'Line "' + str(line_number) + '" not in current page.')
 
         self._current_line.style_normal()
         self._current_line_number = line_number
@@ -234,7 +235,7 @@ class ContentRegion:
         """
         if page_number < 0 or page_number >= self.page_count:
             raise ValueError(
-                'Page number "' + page_number + '" does not exist.')
+                'Page number "' + str(page_number) + '" does not exist.')
 
         self.erase()
         self._current_page_number = page_number
@@ -249,7 +250,7 @@ class ContentRegion:
 
         """
         if self._avail_lines <= 1:
-            raise ValueError('Window is too small for display of content.')
+            raise ValueError('Window is too small to display content.')
 
     def _write_page_lines(self):
         """
@@ -291,6 +292,7 @@ class ContentRegion:
         self._lines_list = lines_list
         self._pages = self._create_pages(self._lines_list)
         self._set_current_page_number(0)
+        self._set_current_line_number(0)
 
     @property
     def current_line_number(self):
@@ -342,6 +344,7 @@ class ContentRegion:
         elif next_page_number < self.page_count:
             for page_number in range(next_page_number, self.page_count):
                 if next_line_number in self._pages[page_number].keys():
+                    self._current_line.style_normal()
                     self._set_current_page_number(page_number)
                     self._set_current_line_number(next_line_number)
                     break
@@ -363,6 +366,7 @@ class ContentRegion:
         elif prev_page_number >= 0:
             for page_number in reversed(range(0, self.current_page_number)):
                 if prev_line_number in self._pages[page_number].keys():
+                    self._current_line.style_normal()
                     self._set_current_page_number(page_number)
                     self._set_current_line_number(prev_line_number)
                     break
@@ -386,9 +390,13 @@ class ContentRegion:
 
         """
         try:
+            self._current_line.style_normal()
             self._set_current_page_number(self._current_page_number + 1)
         except ValueError:
-            pass
+            self._current_line.style_reverse()
+        else:
+            self._current_line_number = list(self._current_page.keys())[0]
+            self._current_line.style_reverse()
 
     def page_previous(self):
         """
@@ -398,9 +406,13 @@ class ContentRegion:
 
         """
         try:
+            self._current_line.style_normal()
             self._set_current_page_number(self._current_page_number - 1)
         except ValueError:
-            pass
+            self._current_line.style_reverse()
+        else:
+            self._current_line_number = list(self._current_page.keys())[0]
+            self._current_line.style_reverse()
 
 
 class HeaderRegion:
