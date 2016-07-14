@@ -337,6 +337,36 @@ class SubresourceState(BaseState):
         self._nav_item_cycle_timestamp = time.time()
         self._nav_item_cycled = True
 
+    def _format_track_line_list(self, tracks_list):
+        """
+        Format a list of track metadata strings for display to the user.
+
+        Args:
+            tracks_list (list): A list of track subresource objects as returned
+                by the model.
+
+        Returns:
+            list: A list of strings suitable for display to the user.
+
+        """
+        lines_list = []
+        list_item_number = 0
+        max_number_length = len(str(len(tracks_list) - 1))
+        max_title_length =  len(max(
+            tracks_list, key=lambda track: len(track.title)).title)
+        for track in tracks_list:
+            track_number = str(list_item_number).rjust(max_number_length, '0')
+            track_title = track.title.ljust(max_title_length)
+            track_duration = str(
+                datetime.timedelta(seconds=round(track.duration / 1000, 0)))
+            lines_list.append(
+                track_number + '. '
+                + track_title + ' '
+                + track_duration)
+            list_item_number += 1
+
+        return lines_list
+
     def _load_user_subresource(self, subresource):
         """
         Fetch subresource data from model and set to current subresource.
@@ -446,14 +476,7 @@ class TracksLoadedState(SubresourceState):
                 self._model.USER_SUBRESRC_01_TRACKS, tracks_data)
             content_lines = []
             if tracks_data:
-                list_item_number = 0
-                for track in tracks_data:
-                    track_number = str(list_item_number).rjust(2, '0')
-                    content_lines.append(
-                        track_number + '. '
-                        + track.title + ' '
-                        + str(datetime.timedelta(milliseconds=track.duration)))
-                    list_item_number += 1
+                content_lines = self._format_track_line_list(tracks_data)
             self._view.content_lines = content_lines
         self._tracks_future = None
         self._tracks_loaded = True
