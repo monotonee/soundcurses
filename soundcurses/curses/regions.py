@@ -195,36 +195,41 @@ class ContentRegion:
         self._current_page_number = 0
         self._current_line_number = 0
 
-    def _set_current_line_number(self, line_number):
+    def _select_line(self, page_number, line_number):
         """
-        Select the line identified by the passed line number.
+        Set the currently-selected line number within the curent page set.
 
-        The line must be present in the current page. Line numbers correspond
-        to the index of the line in the raw self._lines_list.
-
-        May be converted to a public method in the future.
+        Multiple pages may share the same line number so the page number must
+        also be specified. If the speified page number is different from the
+        current page number, the specified page will be rendered and the
+        specified line highlighted.
 
         Args:
-            line_number (int): The number of the line to be selected.
+            page_number (int)
+            line_number (int)
 
         Raises:
-            ValueError: If identifier does not correspond to any available line
-                in the current page.
+            ValueError: If page number not foudn in current page set.
+            ValueError: If line number not found in specified page.
 
         """
-        if line_number not in self._current_page:
+        if page_number not in range(0, self.page_count):
             raise ValueError(
-                'Line "' + str(line_number) + '" not in current page.')
+                'Page number "' + str(page_number) + '" does not exist.')
+        if line_number not in self._pages[page_number].keys():
+            raise ValueError(
+                'Line number "' + str(line_number) + '" '
+                + 'not found in page number "' + str(page_number) + '".')
 
         self._current_line.style_normal()
+        if page_number != self._current_page_number:
+            self._set_current_page_number(page_number)
         self._current_line_number = line_number
         self._current_line.style_reverse()
 
     def _set_current_page_number(self, page_number):
         """
         Set the current page and replace region contents with that of new page.
-
-        May be converted to a public method in the future.
 
         Args:
             page_number (int)
@@ -280,10 +285,6 @@ class ContentRegion:
         organized into one or more pages of content and only one page can be
         rendered at a given time.
 
-        Note that there are two calls to self.erase(): one in this method and a
-        second in self._set_current_page_number(). This doesn't seem to cause
-        any performance issues but still should be revisited later.
-
         Args:
             lines_list (list): A list of line strings.
 
@@ -291,8 +292,9 @@ class ContentRegion:
         self.erase()
         self._lines_list = lines_list
         self._pages = self._create_pages(self._lines_list)
-        self._set_current_page_number(0)
-        self._set_current_line_number(0)
+        self._current_page_number = 0
+        self._write_page_lines()
+        self._select_line(self._current_page_number, 0)
 
     @property
     def current_line_number(self):
@@ -340,13 +342,11 @@ class ContentRegion:
         next_line_number = self._current_line_number + 1
         next_page_number = self._current_page_number + 1
         if next_line_number in self._current_page.keys():
-            self._set_current_line_number(next_line_number)
+            self._select_line(self._current_page_number, next_line_number)
         elif next_page_number < self.page_count:
             for page_number in range(next_page_number, self.page_count):
                 if next_line_number in self._pages[page_number].keys():
-                    self._current_line.style_normal()
-                    self._set_current_page_number(page_number)
-                    self._set_current_line_number(next_line_number)
+                    self._select_line(page_number, next_line_number)
                     break
 
     def line_previous(self):
@@ -362,13 +362,11 @@ class ContentRegion:
         prev_line_number = self._current_line_number - 1
         prev_page_number = self._current_page_number - 1
         if prev_line_number in self._current_page.keys():
-            self._set_current_line_number(prev_line_number)
+            self._select_line(self._current_page_number, prev_line_number)
         elif prev_page_number >= 0:
             for page_number in reversed(range(0, self.current_page_number)):
                 if prev_line_number in self._pages[page_number].keys():
-                    self._current_line.style_normal()
-                    self._set_current_page_number(page_number)
-                    self._set_current_line_number(prev_line_number)
+                    self._select_line(page_number, prev_line_number)
                     break
 
     @property
