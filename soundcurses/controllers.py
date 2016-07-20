@@ -14,7 +14,7 @@ class MainController:
 
     """
 
-    def __init__(self, input_mapper, state_factory, view):
+    def __init__(self, input_mapper, state_factory, view, model):
         """
         Constructor.
 
@@ -22,10 +22,9 @@ class MainController:
         self._application_is_running = False
         self._current_state = None
         self._input_mapper = input_mapper
+        self._model = model
+        self._state_factory = state_factory
         self._view = view
-
-        initial_state = state_factory.create_no_username(self)
-        self.set_state(initial_state)
 
     def _run_main_loop(self):
         """
@@ -37,9 +36,12 @@ class MainController:
         while self._application_is_running:
             input_string = self._view.sample_input()
             action = self._input_mapper.resolve_input(input_string)
-            self._current_state.handle_input(action)
+
+            self._current_state.handle_action(action)
             self._current_state.run_interval_tasks()
+
             self._view.render()
+            self._model.run_interval_tasks()
 
     def set_state(self, state):
         """
@@ -61,6 +63,8 @@ class MainController:
         """
         self._application_is_running = True
         self._view.render()
+        self.set_state(
+            self._state_factory.create_no_username(self))
         self._run_main_loop()
 
     def stop_application(self):

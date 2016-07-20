@@ -33,15 +33,13 @@ class MainView:
         self._region_nav = region_nav
         self._screen = screen
 
-        self._subscribe_to_model()
+        self._connect_to_model()
 
-    def _subscribe_to_model(self):
+    def _connect_to_model(self):
         """
         Connect to the model object's events.
 
         """
-        self._model.signal_change_current_track_set.connect(
-            self._handle_current_track_set_change)
         self._model.signal_change_current_user.connect(
             self._handle_current_user_change)
 
@@ -52,12 +50,55 @@ class MainView:
         """
         self._region_status.username = self._model.current_user.username
 
-    def _handle_current_track_set_change(self, **kwargs):
+    @property
+    def content_lines(self):
         """
-        Respond to an update of the current track set data.
+        Get the lines currently displayed in the content region.
+
+        Returns:
+            list: A list of strings.
 
         """
-        pass
+        return self._region_content.content_lines
+
+    @content_lines.setter
+    def content_lines(self, lines_list):
+        """
+        Set the lines of content to be displayed in the content region.
+
+        Args:
+            lines_list (list): A list of strings.
+
+        """
+        self._region_content.content_lines = lines_list
+
+    def content_line_next(self):
+        """
+        Select the next line of content.
+
+        """
+        self._region_content.line_next()
+
+    def content_line_previous(self):
+        """
+        Select the previous line of content.
+
+        """
+        self._region_content.line_previous()
+
+    def content_page_next(self):
+        """
+        Select the next line of content.
+
+        """
+        self._region_content.page_next()
+
+    def content_page_previous(self):
+        """
+        Select the next line of content.
+
+        """
+        self._region_content.page_previous()
 
     def destroy(self):
         """
@@ -143,6 +184,24 @@ class MainView:
 
         """
         return self._input_source.sample_input()
+
+    def select_next_nav_item(self):
+        """
+        Select the next nav item in the nav region.
+
+        """
+        self._region_nav.select_next_item()
+
+    @property
+    def selected_nav_item(self):
+        """
+        Return the currently-selected navigation item.
+
+        Returns:
+            string: The currently-selected nav item.
+
+        """
+        return self._region_nav.selected_item
 
     def show_help(self):
         """

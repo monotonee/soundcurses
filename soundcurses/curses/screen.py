@@ -143,85 +143,178 @@ class CursesScreen:
         self.signal_rendered.emit()
 
 
-class WindowRenderQueue:
-    """ This class is designed to abstract the ordering of curses windows
-    pushed onto the queue for later rendering.
+class CursesWrapper:
+    """ Wraps the bare curses library interface, applying desired configurations
+    at construction and passing calls through to underlying curses object.
+
+    """
+
+    def __init__(self, curses, locale):
+        self._curses = curses
+        self._locale = locale
+        self.character_encoding = None
+
+        self._configure()
+        self._set_character_encoding()
+
+    def __getattr__(self, name):
+        """ According to my current knowledge, allows attribute access
+        passthrough to underlying curses object. If attribute is nonexistent,
+        AttributeError is raised by getattr() and allowed to bubble.
+
+        """
+        return getattr(self._curses, name)
+
+    def _configure(self):
+        """ Applies necessary setup configurations for app.
+
+        See https://docs.python.org/3.5/howto/curses.html#curses-howto
+
+        From https://docs.python.org/3.5/library/curses.html#curses.initscr
+        "If there is an error opening the terminal, the underlying curses
+        library may cause the interpreter to exit."
+
+        Note: curses.initscr() must be called before curses.savetty().
+
+        """
+        # Save current state.
+        self._curses.savetty()
+        # Make cursor invisible.
+        self._curses.curs_set(0)
+
+        # Define color pairs.
+        # self._curses.init_pair(
+            # 1, self._curses.COLOR_BLACK, self._curses.COLOR_WHITE)
+
+    def _set_character_encoding(self):
+        """ Determine environment locale and get encoding.
+
+        See https://docs.python.org/3.5/library/curses.html
+
+        """
+        # Set current locale to user default as specified in LANG env variable.
+        self._locale.setlocale(self._locale.LC_ALL, '')
+        self.character_encoding = self._locale.getpreferredencoding()
+
+    def destroy(self):
+        """ Relinquish control of the screen. Also returns window settings
+        not set by curses.wrapper() to original values.
+
+        """
+        # Restore original terminal configuration.
+        self._curses.resetty()
+        # Release window control.
+        self._curses.endwin()
+
+
+class RenderQueue:
+    """
+    A class to manage the render order of curses window objects.
 
     Each window object belongs to a predetermined rendering layer and this class
     uses that to insert the window into the appropriate order on the queue while
     accounting for collisions.
 
-    The conscious choice was made to use a list as the value for every render
-    layer "key" in the queue. While this does use more memory, it simplifies
-    code by avoiding constant iterable checks. For this scale, the increased
-    memory is deemed negligible.
+    The conscious choice was made to use an iterable type as the value for every
+    render layer "key" in the queue. While this does use more memory, it
+    simplifies code by avoiding constant iterable checks. For this scale, the
+    increased memory is deemed negligible.
 
     """
 
     def __init__(self):
-        """ Constructor.
+        """
+        Constructor.
 
         """
         self._queue = {}
 
     def __contains__(self, window):
-        """ Implements the membership test interface.
+        """
+        Implement the membership test interface.
+
+        Note that the list "in" operator first uses identity comparison before
+        resorting to value equality comparison.
+
+        Args:
+            window (CursesWindow): A curses window object.
+
+        Returns:
+            bool: True if window is present in queue.
 
         """
         return window in self._flatten_queue()
 
     def __iter__(self):
-        """ Implements the iterable interface method.
+        """
+        Implement the iterable interface method.
 
-        A key will only exist in the queue if it corresponds to a list value so
-        it is safe to begin iteration of the value without checks.
-
-        See: https://docs.python.org/3/reference/datamodel.html#object.__iter__
+        A key (render layer value) will only exist in the queue if there are
+        windows present on that render layer. It is therefore safe to begin
+        iteration of a key's associated list value without checking its
+        existence.
 
         Caution: I'm not sure if the dictionary view produced by dict.values()
         has consistent, deterministic order. In this queue, order is important
         so this needs to be watched.
 
-        See: https://docs.python.org/3.1/library/stdtypes.html#dictionary-view-
-            objects
+        See:
+            https://docs.python.org/3/reference/datamodel.html#object.__iter__
+            https://docs.python.org/3/library/stdtypes.html#dictionary-view-
+                objects
+
+        Returns:
+            list: A list of window objects in render order.
 
         """
         return self._flatten_queue()
 
     def __len__(self):
-        """ Implements len() interface.
+        """
+        Implement iterable length interface.
 
-        itertools.chain has no len() interface, thus it must be converted to an
-        iterable that does. I question the efficiency of calculating something
-        as simple as length this way. Consider implemting a loop and using an
-        accumulator.
+        The object returned by itertools.chain has no len() interface, thus it
+        must be converted to an iterable that does.
 
-        See: https://docs.python.org/3/reference/datamodel.html#object.__len__
+        I question the efficiency of calculating something as simple as length
+        this way. Consider implemting a loop and using an accumulator.
+
+        See:
+            https://docs.python.org/3/reference/datamodel.html#object.__len__
+            https://docs.python.org/3/library/itertools.html#itertools.chain
+
+        Returns:
+            int: The count of window objects in the queue.
 
         """
         return len(list(self._flatten_queue()))
 
     def _flatten_queue(self):
-        """ Returns windows in queue, contained in a one-dimensional, iterable
-        sequence.
+        """
+        Convert the queue data structure into a flat list.
 
-        The docs page on the dictionary's values() method returns a view,
-        iteration over which is in arbitrary order. So simply to guarantee
-        ascending sort, I am iterating manually.
-        See: docs.python.org/3.5/library/stdtypes.html#dictionary-view-objects
+        The window objects are placed into the list in proper render order.
 
-        Previous implementation may also work but tests are needed:
-        return itertools.chain(*self._queue.values())
+        See:
+            http://docs.python.org/3/library/stdtypes.html#dictionary-view-
+                objects
+
+        Returns:
+            list: A list of window objects ordered by render layer.
 
         """
         return itertools.chain(*self._queue.values())
 
     def add(self, window):
-        """ Add a window object to the queue.
+        """
+        Add a window object to the queue.
 
         Render layer collisions are handled by storing items in a bucket,
-        implemented with a set iterable to prevent duplicates. Once a window has
-        been touched, it only needs to be present in the queue once.
+        implemented with a set iterable to prevent duplicates since once a
+        window has been touched, it only needs to be present in the queue once.
+
+        Args:
+            window (CursesWindow): A curses window object.
 
         """
         if window.render_layer in self._queue:
@@ -230,18 +323,25 @@ class WindowRenderQueue:
             self._queue[window.render_layer] = {window}
 
     def clear(self):
-        """ Empty the queue.
+        """
+        Empty the queue.
 
         """
         self._queue.clear()
 
     def remove(self, window):
-        """ Remove a window from the queue if found.
+        """
+        Remove a window from the queue.
 
         Will not throw an exception if the window was not present in the queue.
-        To avoid modifying data structure during iteration, keys marked for
-        deletion are saved and applied after iteration is complete. I'm sure
-        there's a more elegant way to do this.
+
+        Warning: do not modify an iterable during iteration with an iterator. To
+        avoid modifying data structure during iteration, keys marked for
+        deletion are saved and applied after iteration is complete. There's
+        probably a more elegant way to do this.
+
+        Args:
+            window (CursesWindow): A curses window object.
 
         """
         empty_render_layers = []
@@ -253,19 +353,3 @@ class WindowRenderQueue:
 
         for empty_render_layer in empty_render_layers:
             del self._queue[empty_render_layer]
-
-    # @property
-    # def top_render_layer(self):
-        # """
-        # Get the highest render layer integer.
-
-        # Render layers are defined by integers. This method returns the highest
-        # integer currently present in render layer hierarchy (the queue). SInce
-        # the internal queue is keyed by render layer, return the highest queue
-        # key.
-
-        # Since render layers are deleted when empty, this will only compare
-        # layers occupied by one or more windows.
-
-        # """
-        # return max(self._queue.keys())
