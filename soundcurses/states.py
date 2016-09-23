@@ -399,6 +399,10 @@ class SubresourceState(BaseState):
                     self._controller, previous_state=self))
         elif action == self._input_mapper.ACTION_CYCLE_NAV:
             self._cycle_nav_item()
+        elif action == self._input_mapper.ACTION_HELP:
+            self._controller.set_state(
+                self._state_factory.create_help(
+                    self._controller, previous_state=self))
 
     def run_interval_tasks(self):
         """
